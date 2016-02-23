@@ -702,6 +702,7 @@ class REST_CRUD_API {
 		$values = implode(',',str_split(str_repeat('?', count($input))));
 		$params = array_merge(array_keys($input),array_values($input));
 		array_unshift($params, $tables[0]);
+        
 		$result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);
 		if (!$result) return null;
 		return $this->insert_id($db,$result);
@@ -723,6 +724,7 @@ class REST_CRUD_API {
 		$sql .= ' WHERE "!"=?';
 		$params[] = $key[1];
 		$params[] = $key[0];
+        
 		$result = $this->query($db,$sql,$params);
 		return $this->affected_rows($db, $result);
 	}
@@ -845,8 +847,11 @@ class REST_CRUD_API {
 		extract($settings);
 
 		$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
-		$key       = $this->parseRequestParameter($request, 'a-zA-Z0-9\-,'); // auto-increment or uuid
+		$key       = $this->parseRequestParameter($request, 'a-zA-Z0-9\-,'); // auto-increment or uuid        
 		$action    = $this->mapMethodToAction($method,$key);
+        if($action=='create' && $key!=null && $key!=-1){     
+            $action='update';
+        }
 		$callback  = $this->parseGetParameter($get, 'callback', 'a-zA-Z0-9\-_');
 		$page      = $this->parseGetParameter($get, 'page', '0-9,');
 		$filters   = $this->parseGetParameterArray($get, 'filter', false);
@@ -1039,6 +1044,7 @@ class REST_CRUD_API {
 		extract($parameters);
 		if (!$input) $this->exitWith404('input');
 		$this->startOutput($callback);
+       
 		echo json_encode($this->createObject($input,$tables,$db));
 		$this->endOutput($callback);
 	}
@@ -1181,14 +1187,14 @@ class REST_CRUD_API {
 
 // uncomment the lines below when running in stand-alone mode:
 
-// $api = new MySQL_CRUD_API(array(
-// 	'hostname'=>'localhost',
-//	'username'=>'xxx',
-//	'password'=>'xxx',
-//	'database'=>'xxx',
-// 	'charset'=>'utf8'
-// ));
-// $api->executeCommand();
+ $api = new MySQL_CRUD_API(array(
+ 	'hostname'=>'localhost',
+	'username'=>'root',
+	'password'=>'root',
+	'database'=>'north',
+ 	'charset'=>'utf8'
+ ));
+ $api->executeCommand();
 
 // For Microsoft SQL Server use:
 
