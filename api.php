@@ -1093,14 +1093,29 @@ $reqLessTable = str_replace($tables,"",$request);
 		extract($parameters);
 		if (!$input) $this->exitWith404('subject');
 		$this->startOutput($callback);
-		echo json_encode($this->updateObject($key,$input,$tables,$db));
+        $totalAffected = $this->updateObject($key,$input,$tables,$db);
+        if (!$totalAffected<=0) {
+            $error = $this->getError($db);            
+            $this->exitWith500('Failed to update object: '.$error);
+        }else{
+             echo json_encode($totalAffected);
+        }
+		
 		$this->endOutput($callback);
 	}
 
 	protected function deleteCommand($parameters) {
 		extract($parameters);
 		$this->startOutput($callback);
-		echo json_encode($this->deleteObject($key,$tables,$db));
+        $totalAffected =$this->deleteObject($key,$tables,$db);
+        if (!$totalAffected<=0) {
+            $error = $this->getError($db);            
+            $this->exitWith500('Failed to delete object: '.$error);
+        }else{
+             echo json_encode($totalAffected);
+        }
+		
+		
 		$this->endOutput($callback);
 	}
 
