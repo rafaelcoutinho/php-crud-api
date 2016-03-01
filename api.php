@@ -55,6 +55,9 @@ class MySQL_CRUD_API extends REST_CRUD_API {
 		return $db;
 	}
 
+protected function getError($db) {
+    return mysqli_error($db);
+}
 	protected function query($db,$sql,$params) {
 		$sql = preg_replace_callback('/\!|\?/', function ($matches) use (&$db,&$params) {
 			$param = array_shift($params);
@@ -68,7 +71,8 @@ class MySQL_CRUD_API extends REST_CRUD_API {
 			if ($param===null) return 'NULL';
 			return "'".mysqli_real_escape_string($db,$param)."'";
 		}, $sql);
-		//echo "\n$sql\n";
+ syslog(LOG_INFO, "SQL ".$sql);
+//AQUI		echo "\n$sql\n";
 		return mysqli_query($db,$sql);
 	}
 
@@ -558,20 +562,32 @@ class REST_CRUD_API {
 		$table_array = explode(',',$tables);
 		$table_list = array();
 		foreach ($table_array as $table) {
+ syslog(LOG_INFO, $table);
 			if ($result = $this->query($db,$this->queries['reflect_table'],array($table,$database))) {
 				while ($row = $this->fetch_row($result)) $table_list[] = $row[0];
 				$this->close($result);
 				if ($action!='list') break;
 			}			
 		}
+
 		if (empty($table_list)) $this->exitWith404('entity');
 		return $table_list;
 	}
-
+    protected function exitWith500($type) {
+		if (isset($_SERVER['REQUEST_METHOD'])) {
+            header('Access-Control-Allow-Origin: *');
+            header('Content-Type: application/json;',true,500);
+            
+			
+			die("{\"error\":true, \"errorMsg\":\"$type\"}");
+		} else {
+			throw new \Exception($type);
+		}
+	}
 	protected function exitWith404($type) {
 		if (isset($_SERVER['REQUEST_METHOD'])) {
 			header('Content-Type:',true,404);
-			die("Not found ($type)");
+			die("{errorMsg:\"Not found ($type)\"}");
 		} else {
 			throw new \Exception("Not found ($type)");
 		}
@@ -704,8 +720,13 @@ class REST_CRUD_API {
 		array_unshift($params, $tables[0]);
         
 		$result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);
-		if (!$result) return null;
-		return $this->insert_id($db,$result);
+		if (!$result) {
+            $error = $this->getError($db);
+            
+            $this->exitWith500('Failed to insert object: '.$error);
+        }else{
+		  return $this->insert_id($db,$result);
+        }
 	}
 
 	protected function updateObject($key,$input,$tables,$db) {
@@ -845,13 +866,29 @@ class REST_CRUD_API {
 
 	protected function getParameters($settings) {
 		extract($settings);
+ syslog(LOG_INFO, "Req ".$request);
 
-		$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
-		$key       = $this->parseRequestParameter($request, 'a-zA-Z0-9\-,'); // auto-increment or uuid        
+		if(!$request){
+  		     $request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+ syslog(LOG_INFO, "Req 1".$request);
+
+		     $request = str_replace("/rest/","",$request);
+ syslog(LOG_INFO, "Req 2".$request);
+
+		}
+$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
+$reqLessTable = str_replace($tables,"",$request);
+	$key       = $this->parseRequestParameter($reqLessTable, 'a-zA-Z0-9\-,');
+//		$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
+//		$key       = $this->parseRequestParameter(str_replace($tables,"",$request), 'a-zA-Z0-9\-,'); // auto-increment or uuid        
 		$action    = $this->mapMethodToAction($method,$key);
-        if($action=='create' && $key!=null && $key!=-1){     
-            $action='update';
-        }
+		
+	        if($action=='create' && $key!=null && $key!=-1){     
+        	    $action='update';
+	        }
+		$path_only = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
+
+		syslog(LOG_INFO, 'Action is '.$action.' due to '.$method.'  '.$path_only.' - '.$_SERVER['PHP_SELF'] );
 		$callback  = $this->parseGetParameter($get, 'callback', 'a-zA-Z0-9\-_');
 		$page      = $this->parseGetParameter($get, 'page', '0-9,');
 		$filters   = $this->parseGetParameterArray($get, 'filter', false);
@@ -867,7 +904,6 @@ class REST_CRUD_API {
 		$page      = $this->processPageParameter($page);
 		$satisfy   = ($satisfy && strtolower($satisfy)=='any')?'any':'all';
 		$order     = $this->processOrderParameter($order);
-		
 		// reflection
 		list($tables,$collect,$select) = $this->findRelations($tables,$database,$db);
 		$fields = $this->findFields($tables,$collect,$select,$columns,$database,$db);
@@ -1042,7 +1078,11 @@ class REST_CRUD_API {
 
 	protected function createCommand($parameters) {
 		extract($parameters);
-		if (!$input) $this->exitWith404('input');
+		if (!$input) {
+			 syslog(LOG_INFO, 'Cannot create cuz no input found');
+			$this->exitWith404('input');
+		}
+
 		$this->startOutput($callback);
        
 		echo json_encode($this->createObject($input,$tables,$db));
@@ -1185,35 +1225,7 @@ class REST_CRUD_API {
 
 }
 
-// uncomment the lines below when running in stand-alone mode:
 
- $api = new MySQL_CRUD_API(array(
- 	'hostname'=>'localhost',
-	'username'=>'root',
-	'password'=>'root',
-	'database'=>'north',
- 	'charset'=>'utf8'
- ));
- $api->executeCommand();
+include 'connInfo.php';
 
-// For Microsoft SQL Server use:
-
-// $api = new MsSQL_CRUD_API(array(
-// 	'hostname'=>'(local)',
-// 	'username'=>'',
-// 	'password'=>'',
-// 	'database'=>'xxx',
-// 	'charset'=>'UTF-8'
-// ));
-// $api->executeCommand();
-
-// For PostgreSQL use:
-
-// $api = new PgSQL_CRUD_API(array(
-// 	'hostname'=>'localhost',
-// 	'username'=>'xxx',
-// 	'password'=>'xxx',
-// 	'database'=>'xxx',
-// 	'charset'=>'UTF8'
-// ));
-// $api->executeCommand();
+$api->executeCommand();
