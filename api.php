@@ -3,6 +3,7 @@ class MySQL_CRUD_API extends REST_CRUD_API {
 
 	protected $queries = array(
 		'reflect_table'=>'SELECT "TABLE_NAME" FROM "INFORMATION_SCHEMA"."TABLES" WHERE "TABLE_NAME" COLLATE \'utf8_bin\' = ? AND "TABLE_SCHEMA" = ?',
+        'reflect_table_type'=>'SELECT "TABLE_TYPE" FROM "INFORMATION_SCHEMA"."TABLES" WHERE "TABLE_NAME" COLLATE \'utf8_bin\' = ? AND "TABLE_SCHEMA" = ?',
 		'reflect_pk'=>'SELECT "COLUMN_NAME" FROM "INFORMATION_SCHEMA"."COLUMNS" WHERE "COLUMN_KEY" = \'PRI\' AND "TABLE_NAME" = ? AND "TABLE_SCHEMA" = ?',
 		'reflect_belongs_to'=>'SELECT
 				"TABLE_NAME","COLUMN_NAME",
@@ -71,8 +72,8 @@ protected function getError($db) {
 			if ($param===null) return 'NULL';
 			return "'".mysqli_real_escape_string($db,$param)."'";
 		}, $sql);
- syslog(LOG_INFO, "SQL ".$sql);
-//AQUI		echo "\n$sql\n";
+        syslog(LOG_INFO, "SQL ".$sql);
+
 		return mysqli_query($db,$sql);
 	}
 
@@ -637,6 +638,7 @@ class REST_CRUD_API {
 		if (!$key) return false;
 		$count = 0;
 		$field = false;
+        $hasIdField = false;
 		if ($result = $this->query($db,$this->queries['reflect_pk'],array($tables[0],$database))) {
 			while ($row = $this->fetch_row($result)) {
 				$count++;
@@ -644,7 +646,22 @@ class REST_CRUD_API {
 			}
 			$this->close($result);
 		}
-		if ($count!=1 || $field==false) $this->exitWith404('1pk');
+		if ($count!=1 || $field==false) {
+            syslog(LOG_INFO, "Checking if it's a view");
+            if($result=$this->query($db,$this->queries['reflect_table_type'],array($tables[0],$database))){
+                while ($row = $this->fetch_row($result)) {                    
+                    $type = $row[0];
+			    }
+			     $this->close($result);
+                 syslog(LOG_INFO, "Type ".$type);
+                 if($type=="VIEW"){
+                     syslog(LOG_INFO, "It is a view!!!");
+                     //guess it's the ID field;
+                     return array($key,'id');
+                 }
+            }
+            $this->exitWith404('1pk');   
+        }
 		return array($key,$field);
 	}
 
@@ -742,11 +759,25 @@ class REST_CRUD_API {
 			$params[] = $k;
 			$params[] = $v;
 		}
-		$sql .= ' WHERE "!"=?';
-		$params[] = $key[1];
-		$params[] = $key[0];
+       
+        if(strcmp($tables[0],"Trekker_Equipe")==0){
+             syslog(LOG_INFO, "Update ".$tables." = ".$input[0]);
+            $params[] = "id_Trekker";
+            $params[] = $input["id_Trekker"];
+            $params[] = "id_Equipe";
+            $params[] = $input["id_Equipe"];
+            $sql .= ' WHERE "!"=? and "!"=?';
+        }else{
+            $params[] = $key[1];
+		    $params[] = $key[0];
+            $sql .= ' WHERE "!"=?';
+        }
+		
+        
+		
         
 		$result = $this->query($db,$sql,$params);
+        syslog(LOG_INFO, "Update result ".($result==1));
 		return $this->affected_rows($db, $result);
 	}
 
@@ -866,18 +897,18 @@ class REST_CRUD_API {
 
 	protected function getParameters($settings) {
 		extract($settings);
- syslog(LOG_INFO, "Req ".$request);
+ 
 
 		if(!$request){
   		     $request = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
- syslog(LOG_INFO, "Req 1".$request);
+ 
 
 		     $request = str_replace("/rest/","",$request);
- syslog(LOG_INFO, "Req 2".$request);
+ 
 
 		}
-$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
-$reqLessTable = str_replace($tables,"",$request);
+    $tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
+    $reqLessTable = str_replace($tables,"",$request);
 	$key       = $this->parseRequestParameter($reqLessTable, 'a-zA-Z0-9\-,');
 //		$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
 //		$key       = $this->parseRequestParameter(str_replace($tables,"",$request), 'a-zA-Z0-9\-,'); // auto-increment or uuid        
@@ -913,6 +944,7 @@ $reqLessTable = str_replace($tables,"",$request);
 		if ($column_authorizer) $this->applyColumnAuthorizer($column_authorizer,$action,$database,$fields);
 
 		if ($post) {
+            syslog(LOG_INFO, 'POST section');
 			// input
 			$context = $this->retrieveInput($post);
 			$input = $this->filterInputByColumns($context,$fields[$tables[0]]);
@@ -1094,11 +1126,17 @@ $reqLessTable = str_replace($tables,"",$request);
 		if (!$input) $this->exitWith404('subject');
 		$this->startOutput($callback);
         $totalAffected = $this->updateObject($key,$input,$tables,$db);
-        if (!$totalAffected<=0) {
+        
+        
+        $totalAffected+=1;
+
+        if ($totalAffected>0) {
+            echo json_encode($totalAffected);
+        }else{
+        
             $error = $this->getError($db);            
             $this->exitWith500('Failed to update object: '.$error);
-        }else{
-             echo json_encode($totalAffected);
+             
         }
 		
 		$this->endOutput($callback);
@@ -1107,8 +1145,8 @@ $reqLessTable = str_replace($tables,"",$request);
 	protected function deleteCommand($parameters) {
 		extract($parameters);
 		$this->startOutput($callback);
-        $totalAffected =$this->deleteObject($key,$tables,$db);
-        if (!$totalAffected<=0) {
+        $totalAffected = $this->deleteObject($key,$tables,$db);
+        if ($totalAffected<=0) {
             $error = $this->getError($db);            
             $this->exitWith500('Failed to delete object: '.$error);
         }else{
