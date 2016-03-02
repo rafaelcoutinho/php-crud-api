@@ -489,7 +489,8 @@ class REST_CRUD_API {
 			case 'PUT': return 'update';
 			case 'POST': return 'create';
 			case 'DELETE': return 'delete';
-			default: $this->exitWith404('method');
+            
+			default: syslog(LOG_INFO, "DEFAULT ".$method);$this->exitWith404('method');
 		}
 		return false;
 	}
@@ -920,10 +921,35 @@ class REST_CRUD_API {
 //		$tables    = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
 //		$key       = $this->parseRequestParameter(str_replace($tables,"",$request), 'a-zA-Z0-9\-,'); // auto-increment or uuid        
 		$action    = $this->mapMethodToAction($method,$key);
-		
-	        if($action=='create' && $key!=null && $key!=-1){     
-        	    $action='update';
-	        }
+		syslog(LOG_INFO, "$action = ".strcmp($action,'headers'));
+        if(strcmp($action,'headers')==0 && strcmp($tables,"Login")==0){
+            
+            $tables="Trekker";
+        }
+        if(strcmp($action,'create')==0 && strcmp($tables,"Login")==0){
+            syslog(LOG_INFO, "aaa ".$_POST["email"]);
+            $em = $_POST["email"];
+            $pwd = $_POST["pwd"];
+            $sql = "Select id from Trekkers";
+            $params[] = "email";
+            $params[] = $em;
+            // $params[] = "id_Equipe";
+            // $params[] = $input["id_Equipe"];
+            // $sql .= ' WHERE "!"=? and "!"=?';
+            $sql .= ' WHERE "!"=?';
+            
+            $result = $this->query($db,$sql,$params);
+            echo $result;
+            header('Access-Control-Allow-Origin: *');
+            header('Content-Type: application/json;',true,500);
+            
+			
+			die("{\"error\":true, \"errorMsg\":\"$result\"}");
+            return;
+        }
+	    if($action=='create' && $key!=null && $key!=-1){     
+            $action='update';
+	    }
 		$path_only = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
 
 		syslog(LOG_INFO, 'Action is '.$action.' due to '.$method.'  '.$path_only.' - '.$_SERVER['PHP_SELF'] );
