@@ -732,11 +732,18 @@ class REST_CRUD_API {
 		if (!$input) return false;
 		$input = (array)$input;
 		$keys = implode('","',str_split(str_repeat('!', count($input))));
+        
 		$values = implode(',',str_split(str_repeat('?', count($input))));
 		$params = array_merge(array_keys($input),array_values($input));
 		array_unshift($params, $tables[0]);
         
-		$result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);
+        if(strcmp($tables[0],"Trekker_Equipe")==0){            
+            $result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);
+        }else{
+            $result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);    
+        }
+        
+		
 		if (!$result) {
             $error = $this->getError($db);
             
@@ -777,7 +784,7 @@ class REST_CRUD_API {
 		
         
 		$result = $this->query($db,$sql,$params);
-        syslog(LOG_INFO, "Update result ".($result==1));
+        
 		return $this->affected_rows($db, $result);
 	}
 
@@ -1101,6 +1108,7 @@ class REST_CRUD_API {
 
 	protected function readCommand($parameters) {
 		extract($parameters);
+
 		$object = $this->retrieveObject($key,$fields,$tables,$db);
 		if (!$object) $this->exitWith404('object');
 		$this->startOutput($callback);
@@ -1115,10 +1123,20 @@ class REST_CRUD_API {
 			$this->exitWith404('input');
 		}
 
-		$this->startOutput($callback);
-       
-		echo json_encode($this->createObject($input,$tables,$db));
-		$this->endOutput($callback);
+        $id = $this->createObject($input,$tables,$db);        
+        
+        if(strcmp($tables[0],"Trekker_Equipe")==0){
+            $this->startOutput($callback);
+            echo "{\"success\":true,\"info\":\"".$id."\"}";
+            $this->endOutput($callback);
+        }else{    
+            $parameters["key"]=[$id,"id"];
+
+            syslog(LOG_INFO, "id ".$id." params ".$parameters);
+            
+            $this->readCommand($parameters);
+        }
+
 	}
 
 	protected function updateCommand($parameters) {
