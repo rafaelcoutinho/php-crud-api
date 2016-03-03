@@ -586,10 +586,21 @@ class REST_CRUD_API {
 			throw new \Exception($type);
 		}
 	}
+	protected function exitWith($type,$code) {
+		if (isset($_SERVER['REQUEST_METHOD'])) {
+			header('Access-Control-Allow-Origin: *');
+			header('Content-Type: application/json;',true,$code);
+	
+				
+			die("{\"error\":true, \"errorMsg\":\"$type\"}");
+		} else {
+			throw new \Exception($type);
+		}
+	}
 	protected function exitWith404($type) {
 		if (isset($_SERVER['REQUEST_METHOD'])) {
 			header('Content-Type:',true,404);
-			die("{errorMsg:\"Not found ($type)\"}");
+			die("{\"errorMsg\":\"Not found ($type)\"}");
 		} else {
 			throw new \Exception("Not found ($type)");
 		}
