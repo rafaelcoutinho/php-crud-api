@@ -1,11 +1,18 @@
 <?php
 // uncomment the lines below when running in stand-alone mode:
+$configArray  = array(
+		'hostname'=>'null',
+		'username'=>'root',
+		'password'=>'root',
+		'database'=>'dbdb',
+		'charset'=>'utf8'
+);
 
 // $api = new MySQL_CRUD_API(array(
 // 	'hostname'=>null,
 //	'username'=>'root',
 //	'password'=>'root',
-//	'database'=>'northdb',
+//	'database'=>'-',
 // 	'charset'=>'utf8'
 // ));
 
@@ -13,10 +20,10 @@
 
 
 // $api = new MsSQL_CRUD_API(array(
-// 	'hostname'=>'186.202.148.130',
-// 	'username'=>'northbrasil1',
-// 	'password'=>'nji90o9876',
-// 	'database'=>'northbrasil1',
+// 	'hostname'=>'-',
+// 	'username'=>'-',
+// 	'password'=>'-',
+// 	'database'=>'-',
 // 	'charset'=>'UTF-8'
 // ));
 
