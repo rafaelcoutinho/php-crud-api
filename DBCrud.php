@@ -510,6 +510,8 @@ class REST_CRUD_API {
 	}
 
 	protected function parseGetParameterArray($get,$name,$characters) {
+        
+        
 		$values = isset($get[$name])?$get[$name]:false;
 		if (!is_array($values)) $values = array($values);
 		if ($characters) {
@@ -518,6 +520,30 @@ class REST_CRUD_API {
 			}
 		}
 		return $values;
+	}
+    protected function parseGetParameterFakeArray($get,$namePrefix,$characters) {
+        
+        $counter = 0;
+        $paramVals=array();;
+        $name = $namePrefix.$counter;
+        
+        while(isset($get[$name])){
+            
+            $values = isset($get[$name])?$get[$name]:false;
+            
+            if (!is_array($values)) $values = array($values);
+            if ($characters) {
+                foreach ($values as &$value) {
+                    $value = preg_replace("/[^$characters]/",'',$value);
+                }
+            }
+            $paramVals[]=$values;
+            $counter++;
+            $name = $namePrefix.$counter;
+            
+        }
+        syslog(LOG_INFO, "Values".serialize($paramVals));
+		return $paramVals;
 	}
 
 	protected function applyTableAuthorizer($callback,$action,$database,&$tables) {
@@ -564,7 +590,7 @@ class REST_CRUD_API {
 		$table_array = explode(',',$tables);
 		$table_list = array();
 		foreach ($table_array as $table) {
- syslog(LOG_INFO, $table);
+ 
 			if ($result = $this->query($db,$this->queries['reflect_table'],array($table,$database))) {
 				while ($row = $this->fetch_row($result)) $table_list[] = $row[0];
 				$this->close($result);
@@ -586,13 +612,15 @@ class REST_CRUD_API {
 			throw new \Exception($type);
 		}
 	}
-	protected function exitWith($type,$code) {
+	protected function exitWith($type,$code,$errorCode) {
 		if (isset($_SERVER['REQUEST_METHOD'])) {
 			header('Access-Control-Allow-Origin: *');
 			header('Content-Type: application/json;',true,$code);
-	
+			if($errorCode==null){
+				$errorCode=-1;
+			}
 				
-			die("{\"error\":true, \"errorMsg\":\"$type\"}");
+			die("{\"error\":true, \"errorMsg\":\"$type\",\"errorCode\":$errorCode}");
 		} else {
 			throw new \Exception($type);
 		}
@@ -688,7 +716,11 @@ class REST_CRUD_API {
 	
 	protected function processFiltersParameter($tables,$filters) {
 		$result = array();
+        
+
 		foreach ($filters as $filter) {
+            
+            $filter=$filter[0];
 			if ($filter) {
 				$filter = explode(',',$filter,3);
 				if (count($filter)==3) {
@@ -749,7 +781,9 @@ class REST_CRUD_API {
 		$params = array_merge(array_keys($input),array_values($input));
 		array_unshift($params, $tables[0]);
         
-        if(strcmp($tables[0],"Trekker_Equipe")==0){            
+        if(strcmp($tables[0],"Trekker_Equipe")==0){
+            
+            $this->query($db,'update Trekker_Equipe set end=(UNIX_TIMESTAMP()*1000) where id_Trekker='.$input["id_Trekker"].' and end=0');            
             $result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);
         }else{
             $result = $this->query($db,'INSERT INTO "!" ("'.$keys.'") VALUES ('.$values.')',$params);    
@@ -780,12 +814,19 @@ class REST_CRUD_API {
 		}
        
         if(strcmp($tables[0],"Trekker_Equipe")==0){
-             syslog(LOG_INFO, "Update ".$tables." = ".$input[0]);
+            
             $params[] = "id_Trekker";
             $params[] = $input["id_Trekker"];
             $params[] = "id_Equipe";
             $params[] = $input["id_Equipe"];
             $sql .= ' WHERE "!"=? and "!"=?';
+        }if(strcmp($tables[0],"Inscricao")==0){
+        	$params[] = "id_Trekker";
+        	$params[] = $input["id_Trekker"];
+        	$params[] = "id_Etapa";
+        	$params[] = $input["id_Etapa"];
+        	$sql .= ' WHERE "!"=? and "!"=?';
+        	
         }else{
             $params[] = $key[1];
 		    $params[] = $key[0];
@@ -896,6 +937,7 @@ class REST_CRUD_API {
 	}
 
 	protected function filterInputByColumns($input,$columns) {
+        
 		if ($columns) foreach (array_keys((array)$input) as $key) {
 			if (!isset($columns[$key])) {
 				unset($input->$key); 
@@ -943,7 +985,7 @@ class REST_CRUD_API {
 		syslog(LOG_INFO, 'Action is '.$action.' due to '.$method.'  '.$path_only.' - '.$_SERVER['PHP_SELF'] );
 		$callback  = $this->parseGetParameter($get, 'callback', 'a-zA-Z0-9\-_');
 		$page      = $this->parseGetParameter($get, 'page', '0-9,');
-		$filters   = $this->parseGetParameterArray($get, 'filter', false);
+		$filters   = $this->parseGetParameterFakeArray($get, 'filter', false);
 		$satisfy   = $this->parseGetParameter($get, 'satisfy', 'a-z');
 		$columns   = $this->parseGetParameter($get, 'columns', 'a-zA-Z0-9\-_,');
 		$order     = $this->parseGetParameter($get, 'order', 'a-zA-Z0-9\-_*,');
@@ -952,7 +994,9 @@ class REST_CRUD_API {
 		$tables    = $this->processTablesParameter($database,$tables,$action,$db);
 		$key       = $this->processKeyParameter($key,$tables,$database,$db);
 		$filters   = $this->processFiltersParameter($tables,$filters);
+        
 		if ($columns) $columns = explode(',',$columns);
+        
 		$page      = $this->processPageParameter($page);
 		$satisfy   = ($satisfy && strtolower($satisfy)=='any')?'any':'all';
 		$order     = $this->processOrderParameter($order);
@@ -991,6 +1035,7 @@ class REST_CRUD_API {
 			$sql = 'SELECT COUNT(*) FROM "!"';
 			$params[] = $table;
 			foreach ($filters as $i=>$filter) {
+               
 				if (is_array($filter)) {
 					$sql .= $i==0?' WHERE ':($satisfy=='all'?' AND ':' OR ');
 					$sql .= '"!" ! ?';
@@ -998,6 +1043,7 @@ class REST_CRUD_API {
 					$params[] = $filter[1];
 					$params[] = $filter[2];
 				}
+                
 			}
 			if ($result = $this->query($db,$sql,$params)) {
 				while ($pages = $this->fetch_row($result)) {
@@ -1005,17 +1051,24 @@ class REST_CRUD_API {
 				}
 			}
 		}
+        
 		$params = array();
 		$sql = 'SELECT ';
 		$sql .= '"'.implode('","',array_keys($fields[$table])).'"';
 		$sql .= ' FROM "!"';
 		$params[] = $table;
+        
+
 		foreach ($filters as $i=>$filter) {
+             
 			if (is_array($filter)) {
+                
 				$sql .= $i==0?' WHERE ':($satisfy=='all'?' AND ':' OR ');
 				$sql .= '"!" ! ?';
 				$params[] = $filter[0];
+                
 				$params[] = $filter[1];
+                
 				$params[] = $filter[2];
 			}
 		}
@@ -1139,7 +1192,7 @@ class REST_CRUD_API {
 
         $id = $this->createObject($input,$tables,$db);        
         
-        if(strcmp($tables[0],"Trekker_Equipe")==0){
+        if(strcmp($tables[0],"Trekker_Equipe")==0 || strcmp($tables[0],"Inscricao")==0 ){
             $this->startOutput($callback);
             echo "{\"success\":true,\"info\":\"".$id."\"}";
             $this->endOutput($callback);
