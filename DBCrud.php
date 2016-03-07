@@ -68,7 +68,9 @@ protected function getError($db) {
 			},$param)).')';
 			if (is_object($param) && $param->type=='base64') {
 				return "x'".bin2hex(base64_decode($param->data))."'";
-			}
+			}else if ($param->type=='bit') {
+                 syslog(LOG_INFO, "biiiitttt ".$v);
+            }
 			if ($param===null) return 'NULL';
 			return "'".mysqli_real_escape_string($db,$param)."'";
 		}, $sql);
@@ -809,6 +811,7 @@ class REST_CRUD_API {
 			if ($i) $sql .= ',';
 			$v = $input[$k];
 			$sql .= '"!"=?';
+            
 			$params[] = $k;
 			$params[] = $v;
 		}
@@ -820,7 +823,7 @@ class REST_CRUD_API {
             $params[] = "id_Equipe";
             $params[] = $input["id_Equipe"];
             $sql .= ' WHERE "!"=? and "!"=?';
-        }if(strcmp($tables[0],"Inscricao")==0){
+        }else if(strcmp($tables[0],"Inscricao")==0){
         	$params[] = "id_Trekker";
         	$params[] = $input["id_Trekker"];
         	$params[] = "id_Etapa";
