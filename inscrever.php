@@ -8,6 +8,7 @@ class InscricaoApi extends MySQL_CRUD_API {
         
         $result = $this->query($db,'update Trekker_Equipe set end=(UNIX_TIMESTAMP()*1000) where id_Trekker='.$id_Trekker.' and id_Equipe<>'.$id_Equipe.' and end=0');
         $hasEntry=$this->affected_rows($db, $result);
+        
          syslog ( LOG_INFO, "Remocao de equipe retornou ".$hasEntry);
         $params = array (
 					mysqli_real_escape_string ( $db, $id_Trekker ),
@@ -42,10 +43,13 @@ class InscricaoApi extends MySQL_CRUD_API {
         
         $result = $this->query($db,'select id_Trekker from Inscricao where id_Trekker in (select id_Trekker from Trekker_Equipe where id_Equipe=?) and id_Etapa=? and id_Trekker not in ('.$sqlParam.')  and paga=(1)',$sqlTrekkerParams);
         syslog ( LOG_INFO, "result->num_rows ".$result->num_rows );
-        if ($result->num_rows > 0) {
+        if ($result) {
+              if ($row = $this->fetch_row($result)) {
               syslog ( LOG_INFO, "Inscrição não pode ser alterada" );
               $this->exitWith ( "Inscricao tenta remover participante com status pago", 500, 661 );
+              }
         }
+        $this->close($result);
         
     
         $paramsDelete = array (
@@ -133,11 +137,11 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
         
         $idEquipe = $data->equipe->id; 
-        if($data->equipe->id==-1){
+        if(!$idEquipe || $idEquipe==-1){
             syslog ( LOG_INFO, "Equipe nova, criando" );
             $idEquipe = $this->saveEquipe($db,$data->equipe);                
         }
-         if($idEquipe==-1){
+         if(!$idEquipe || $idEquipe==-1){
             $this->exitWith ( "FAIL_INSERT_EQUIPE", 500,701 );
         }    
         

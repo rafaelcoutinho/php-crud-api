@@ -1,18 +1,17 @@
 <?php
 include 'DBCrud.php';
 include 'connInfo.php';
-syslog ( LOG_INFO, "AQUI " . $configArray );
-$adfasdf = $configArray;
+
+
 class LoginApi extends MySQL_CRUD_API {
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
-			$this->headersCommand(NULL);
+			$this->headersCommand ( NULL );
 		}
-		if(strcmp($_SERVER ['REQUEST_METHOD'],"OPTIONS")==0){
+		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
 			return;
 		}
-		
 		
 		$request_body = file_get_contents ( 'php://input' );
 		$data = json_decode ( $request_body );
@@ -24,7 +23,7 @@ class LoginApi extends MySQL_CRUD_API {
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		
 		$sql = "select * FROM Trekker where email='" . mysqli_real_escape_string ( $db, $data->email ) . "' and password='" . mysqli_real_escape_string ( $db, $pwd ) . "'";
-		
+		syslog ( LOG_INFO, "sq " . $sql );
 		$result = mysqli_query ( $db, $sql );
 		
 		if ($result->num_rows == 1) {
