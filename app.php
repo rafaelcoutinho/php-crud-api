@@ -26,26 +26,10 @@ class AppApi extends MySQL_CRUD_API {
 		}
 		return $colInfo;
 	}
-	protected function getObject($row, $colInfo) {
-		$keys = array_keys ( $row );
-		$response = "{";
-		
-		foreach ( $row as $key => $value ) {
-			$response .= "\"" . $key . "\":";
-			if ($colInfo [$key] == 3 || $colInfo [$key] == 8) {
-				$response .= $row [$key];
-			} else {
-				$response .= "\"" . $row [$key] . "\"";
-			}
-			$response .= ",";
-		}
-		$response = rtrim ( $response, "," );
-		$response .= "}";
-		return $response;
-	}
+	
 	protected function listTable($db, $sql, $params) {
 		$response = "";
-		syslog ( LOG_INFO, "todas " . $sql );
+		
 		if ($result = $this->query ( $db, $sql, $params )) {
 			$colInfo = $this->getColInfo ( $result );
 			while ( $row = $this->fetch_assoc ( $result ) ) {

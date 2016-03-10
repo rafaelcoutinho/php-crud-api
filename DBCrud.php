@@ -3,6 +3,7 @@ define ( 'MISSING_PWD', '801' );
 define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
 define ( 'GENERIC_DB_ERROR', '990' );
+date_default_timezone_set("America/Sao_Paulo");
 class MySQL_CRUD_API extends REST_CRUD_API {
 	protected $queries = array (
 			'reflect_table' => 'SELECT "TABLE_NAME" FROM "INFORMATION_SCHEMA"."TABLES" WHERE "TABLE_NAME" COLLATE \'utf8_bin\' = ? AND "TABLE_SCHEMA" = ?',
@@ -787,17 +788,20 @@ class REST_CRUD_API {
 		$sql = 'SELECT ';
 		$sql .= '"' . implode ( '","', array_keys ( $fields [$tables [0]] ) ) . '"';
 		$sql .= ' FROM "!" WHERE "!" = ?';
+		
 		if ($result = $this->query ( $db, $sql, array (
 				$tables [0],
 				$key [1],
 				$key [0] 
 		) )) {
+			$colInfo = $this->getColInfo ( $result,TRUE );
 			$object = $this->fetch_assoc ( $result );
-			foreach ( $fields [$tables [0]] as $field ) {
-				if ($this->is_binary_type ( $field ) && $object [$field->name]) {
-					$object [$field->name] = $this->base64_encode ( $object [$field->name] );
-				}
-			}
+			$object = $this->getObject ( $object, $colInfo );
+// 			foreach ( $fields [$tables [0]] as $field ) {
+// 				if ($this->is_binary_type ( $field ) && $object [$field->name]) {
+// 					$object [$field->name] = $this->base64_encode ( $object [$field->name] );
+// 				}
+// 			}
 			$this->close ( $result );
 		}
 		return $object;
@@ -1089,6 +1093,42 @@ class REST_CRUD_API {
 		
 		return compact ( 'action', 'database', 'tables', 'key', 'callback', 'page', 'filters', 'satisfy', 'fields', 'order', 'transform', 'db', 'input', 'collect', 'select' );
 	}
+	protected function getColInfo($result, $useName) {
+		$colInfo = array ();
+		while ( $column_info = $result->fetch_field () ) {
+			if ($useName) {
+				$colInfo [$column_info->name] = $column_info->type;
+			} else {
+				$colInfo [] = $column_info->type;
+			}
+			// 
+		}
+		return $colInfo;
+	}
+
+	protected function getObject($row, $colInfo) {
+		$keys = array_keys ( $row );
+		$response = "{";
+		
+		foreach ( $row as $key => $value ) {
+			$response .= "\"" . $key . "\":";
+			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1) {
+				
+			if(is_nan($row [$key])|| $row[$key]==null){
+				$response .= "null";
+				}else{
+					$response .= $row [$key];
+					
+				}
+			} else {
+				$response .= "\"" . $row [$key] . "\"";
+			}
+			$response .= ",";
+		}
+		$response = rtrim ( $response, "," );
+		$response .= "}";
+		return $response;
+	}
 	protected function listCommandInternal($parameters) {
 		extract ( $parameters );
 		echo '{';
@@ -1156,6 +1196,9 @@ class REST_CRUD_API {
 			$keys = array_flip ( $keys );
 			echo ',"records":[';
 			$first_row = true;
+			
+			$colInfo = $this->getColInfo ( $result ,FALSE);
+			
 			while ( $row = $this->fetch_row ( $result ) ) {
 				if ($first_row)
 					$first_row = false;
@@ -1171,7 +1214,11 @@ class REST_CRUD_API {
 						$row [$k] = $this->base64_encode ( $row [$k] );
 					}
 				}
-				echo json_encode ( $row );
+				$keys = array_keys ( $row );
+				
+				$response = $this->getObject ( $row, $colInfo );
+				
+				echo $response; // json_encode ( $row ,array(JSON_NUMERIC_CHECK));
 			}
 			$this->close ( $result );
 			echo ']';
@@ -1249,10 +1296,11 @@ class REST_CRUD_API {
 		extract ( $parameters );
 		
 		$object = $this->retrieveObject ( $key, $fields, $tables, $db );
-		if (! $object)
+		if (! $object){
 			$this->exitWith404 ( 'object' );
+		}
 		$this->startOutput ( $callback );
-		echo json_encode ( $object );
+		echo  $object ;
 		$this->endOutput ( $callback );
 	}
 	protected function createCommand($parameters) {
