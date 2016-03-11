@@ -23,151 +23,219 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 		// permite o update
 		
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
+		$resp = array ();
+		$resp ["gridUpdate"] = false;
+		if ($data->paga == 1) {
+			
+			$equipe = $this->getEquipe ( $db, $data->id_Trekker );
+			
+			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $equipe ["id_Equipe"] );
+			if ($gridInfo == null) {
+				
+				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
+				$dataEtapa = $this->getDataEtapa ( $db, $data->id_Etapa );
+				
+				syslog ( LOG_INFO, "data etapa $dataEtapa" );
+				
+				// parte hc
+				$gridConfig = $this->getGridConfig ( $db, $equipe ["id_Categoria"] );
+				
+				// agora procurar o cara mais atras na lista do grid
+				
+				$inicio_minuto = $gridConfig ["inicio_minuto"];
+				$inicio_hora = $gridConfig ["inicio_hora"];
+				syslog ( LOG_INFO, " $inicio_hora $inicio_minuto" );
+				
+				$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $data->id_Etapa, $gridConfig );
+				
+				syslog ( LOG_INFO, " totaldeslocamento $deslocamentoEmMinutos" );
+				$deslocamentoEmMinutos += $inicio_minuto;
+				$addHour = ( int ) ($deslocamentoEmMinutos / 60);
+				
+				$hora = $inicio_hora;
+				$hora += $addHour;
+				
+				$minutoToGo = ($deslocamentoEmMinutos % 60);
+				$this->insertEquipeGrid ( $db, $equipe ["id_Equipe"], $data->id_Etapa, $hora, $minutoToGo, $gridConfig ["id"] );
+				$this->updateInscricao ( $db, $data );
+				$resp ["gridUpdate"] = true;
+			}
+		} else {
+			
+			$this->updateInscricao ( $db, $data );
+		}
 		
+		$this->startOutput ( $callback );
+		echo json_encode ( $resp );
+		$this->endOutput ( null );
+	}
+	private function getDiffMinutes($refHora, $refMinutos, $hora, $minuto) {
+		// syslog ( LOG_INFO, "$horas = $hora - $refHora" );
+		$nHoras = $hora - $refHora;
+		// syslog ( LOG_INFO, "$minuto += ($nHoras * 60)" );
+		$nMinuto = $minuto + ($nHoras * 60);
+		// syslog ( LOG_INFO, "$nMinuto - $refMinutos" );
+		return $nMinuto - $refMinutos;
+	}
+	/**
+	 *
+	 * @param
+	 *        	row
+	 * @param
+	 *        	dataEtapa
+	 */
+	private function getDataEtapa($db, $idEtapa) {
+		$sql = 'SELECT data from Etapa where id=?';
+		$params = array ();
+		$params [] = $idEtapa;
+		$result = $this->query ( $db, $sql, $params );
+		
+		if ($result) {
+			if ($row = $this->fetch_assoc ( $result )) {
+				return $row ["data"];
+			} else {
+				
+				$this->exitWith ( "Não achou etapa", 400, 990 );
+			}
+		} else {
+			$this->exitWith ( "Não achou etapa", 400, 990 );
+		}
+	}
+	
+	/**
+	 */
+	private function updateInscricao($db, $data) {
 		$sql = 'UPDATE "Inscricao" SET "paga"=? WHERE "id_Trekker"=? and "id_Etapa"=?';
-		$params = array ();	
+		$params = array ();
 		$params [] = $data->paga;
 		$params [] = $data->id_Trekker;
 		$params [] = $data->id_Etapa;
 		$result = $this->query ( $db, $sql, $params );
 		$hasEntry = $this->affected_rows ( $db, $result );
 		if ($hasEntry == 0) {
-			$this->exitWith ( "Cannot find row", 401 );
+			$this->exitWith ( "Cannot find row", 401, 990 );
+		}
+	}
+	private function getGridConfig($db, $idCategoria) {
+		$sql = 'SELECT * from GridConfig where id=?';
+		
+		$params = array ();
+		if ($idCategoria == 1 || $idCategoria == 2) {
+			$params [] = "1";
+		} else {
+			$params [] = $idCategoria;
 		}
 		
-		if ($data->paga == 1) {
-			syslog ( LOG_INFO, "Foi paga, checar se deve colocar no grid" );
-			$sql = "select id_Equipe,id_Categoria from Competidor_Equipe where id_Trekker=?";
-			$params = array ();
-			$params [] = $data->id_Trekker;
-			$idEquipe = null;
-			$idCategoria = null;
-			$result = $this->query ( $db, $sql, $params );
-			if ($result) {
-				if ($row = $this->fetch_assoc ( $result )) {
-					syslog ( LOG_INFO, "-- " . ($row ["id_Equipe"]) );
-					$idEquipe = $row ["id_Equipe"];
-					$idCategoria = $row ["id_Categoria"];
-					$this->close ( $result );
-				} else {
-					$this->close ( $result );
-					$this->exitWith ( "Missing parameters", 500 );
-				}
+		$result = $this->query ( $db, $sql, $params );
+		if ($result) {
+			if ($row = $this->fetch_assoc ( $result )) {
+				return $row;
+			}
+			
+			$this->close ( $result );
+		} else {
+			syslog ( LOG_INFO, "getGridConfig não existe!!" );
+		}
+		return null;
+	}
+	private function getEquipe($db, $id_Trekker) {
+		$sql = "select id_Equipe,id_Categoria from Competidor_Equipe where id_Trekker=?";
+		$params = array ();
+		$params [] = $id_Trekker;
+		$equipe = array ();
+		
+		$result = $this->query ( $db, $sql, $params );
+		if ($result) {
+			if ($row = $this->fetch_assoc ( $result )) {
+				
+				$equipe ["id_Equipe"] = $row ["id_Equipe"];
+				$equipe ["id_Categoria"] = $row ["id_Categoria"];
+				$this->close ( $result );
+				return $equipe;
 			} else {
-				syslog ( LOG_INFO, "Equipe não existe!!" );
 				$this->close ( $result );
 				$this->exitWith ( "Missing parameters", 500 );
 			}
-			$resp = array();
-			
-			$sql = 'SELECT id from Grid where id_Etapa=? and id_Equipe=?';
-			$params = array ();
-			$params [] = $data->id_Etapa;
-			$params [] = $idEquipe;
-			$result = $this->query ( $db, $sql, $params );
-			
-			if ($result) {
-				if ($row = $this->fetch_row ( $result )) {
-					syslog ( LOG_INFO, "Equipe já está no grid " );
-					$resp["gridupdate"]=false;
-				} else {
-					syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
-				}
+		} else {
+			syslog ( LOG_INFO, "Equipe não existe!!" );
+			$this->close ( $result );
+			$this->exitWith ( "Missing parameters", 500 );
+		}
+	}
+	private function getGridInfo($db, $idEtapa, $idEquipe) {
+		$sql = 'SELECT id_Equipe from Grid where id_Etapa=? and id_Equipe=?';
+		$params = array ();
+		$params [] = $idEtapa;
+		$params [] = $idEquipe;
+		$result = $this->query ( $db, $sql, $params );
+		
+		if ($result) {
+			if ($row = $this->fetch_assoc ( $result )) {
+				syslog ( LOG_INFO, "Equipe já está no grid " );
+				
+				return row;
 			} else {
-				syslog ( LOG_INFO, "Equipe deve ser incluida no grid, nao achou fora" );
-				$sql = 'SELECT data from Etapa where id=?';
-				$params = array ();
-				$params [] = $data->id_Etapa;				
-				$result = $this->query ( $db, $sql, $params );
+				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
+				return null;
+			}
+		} else {
+			return null;
+		}
+	}
+	private function getEquipesNoGrid($db, $idEtapa, $gridConfig) {
+		$sql = 'SELECT * from Grid where id_Etapa=? and id_Config=? order by hora,minuto';
+		$params = array ();
+		$params [] = $idEtapa;
+		$params [] = $gridConfig ["id"];
+		$result = $this->query ( $db, $sql, $params );
+		$deslocamentoEmMinutos = 0;
+		$inicio_hora = $gridConfig ["inicio_hora"];
+		$inicio_minuto = $gridConfig ["inicio_minuto"];
+		syslog ( LOG_INFO, "Grid Info inicio:  $inicio_hora:$inicio_minuto Quota: " . $gridConfig ["quota_intervalo1"] . " Intervalo A:" . $gridConfig ["intervalo1"] . " Intervalo A: " . $gridConfig ["intervalo2"] );
+		$total = 0;
+		if ($result) {
+			while ( $row = $this->fetch_assoc ( $result ) ) {
+				$total ++;
+				$cHora = $row ["hora"];
+				$cMinuto = $row ["minuto"];
 				
-				if ($result) {
-					if ($row = $this->fetch_assoc ( $result )) {							
-						$dataEtapa=$row["data"];
+				$diffMinutes = $this->getDiffMinutes ( $inicio_hora, $inicio_minuto, $cHora, $cMinuto );
+				
+				syslog ( LOG_INFO, "$total: diff = $diffMinutes - $deslocamentoEmMinutos" );
+				if ($diffMinutes < $deslocamentoEmMinutos) {
+					syslog ( LOG_INFO, "Não é o horario certo... " );
+					$total --;
+				} else if ($diffMinutes != $deslocamentoEmMinutos) {
+					syslog ( LOG_INFO, "Há um espaco aqui!" );
+					break;
+				} else {
+					if ($total < $gridConfig ["quota_intervalo1"]) {
+						syslog ( LOG_INFO, "dentro quota_intervalo1" );
+						$deslocamentoEmMinutos += $gridConfig ["intervalo1"];
 					} else {
-						
-					}
-				}
-				syslog ( LOG_INFO, "dataetapa $dataEtapa" );
-				
-				// parte hc
-				$sql = 'SELECT * from GridConfig where id=?';
-				
-				$gridConfig = array ();
-				$params = array ();
-				if($idCategoria==1 || $idCategoria==2){
-					$params [] = "1";
-				}else{
-					$params [] = $idCategoria;
-				}
-				
-				$result = $this->query ( $db, $sql, $params );
-				if ($result) {
-					if ($row = $this->fetch_assoc ( $result )) {
-						$gridConfig = array (
-								'id' => $row ["id"],
-								'intervalo1' => $row ["intervalo1"],
-								'inicio_minuto' => $row ["inicio_minuto"],
-								'inicio_hora' => $row ["inicio_hora"],
-								'intervalo2' => $row ["intervalo2"],
-								'quota_intervalo1' => $row ["quota_intervalo1"] 
-						);											
-					}
-					$this->close ( $result );
-					
-					// agora procurar o cara mais atras na lista do grid
-					$sql = 'SELECT count(*) as total from Grid where id_Etapa=? and id_Config=?';
-					$params = array ();
-					$params [] = $data->id_Etapa;
-					$params [] = $gridConfig["id"];
-					$result = $this->query ( $db, $sql, $params );
-					if ($result) {
-						$total = 0;
-						if ($row = $this->fetch_assoc ( $result )) {
-							$total = $row ["total"];
-						}
-						
-						
-						$inicio_minutos = $gridConfig["inicio_minuto"];
-						$inicio_hora = $gridConfig["inicio_hora"];
-						$dataEtapa += $inicio_hora*60*60*1000;
-						$dataEtapa += $inicio_minutos*1000;
-						syslog ( LOG_INFO, "total é " . $total." / ".$gridConfig["quota_intervalo1"] );
-						
-						
-						
-						
-						if($gridConfig["quota_intervalo1"] && $total>$gridConfig["quota_intervalo1"]){
-							syslog ( LOG_INFO, "date é " . $date );
-							$deslocamentoEmMinutos = $gridConfig["quota_intervalo1"] * $gridConfig["intervalo1"];
-							$deslocamentoEmMinutos += ($total-$gridConfig["quota_intervalo1"])*$gridConfig["intervalo2"];							
-						}else{
-							$deslocamentoEmMinutos = $total * $gridConfig["intervalo1"];
-						}	
-						
-						$horario = $dataEtapa + ($deslocamentoEmMinutos * 60 * 1000);
-						
-						$sql = 'insert into Grid (id_Equipe,id_Etapa,largada,id_Config) values (?,?,?,?)';
-						$params = array ();
-						$params [] = $idEquipe;
-						$params [] = $data->id_Etapa;
-						$params [] = $horario;
-						$params [] = $gridConfig["id"];
-						$result = $this->query( $db, $sql, $params );
-						$hasEntry = $this->affected_rows ( $db, $result );
-						if ($hasEntry == 0) {
-							$this->exitWith ( "Cannot find row", 401 );
-						}
-						$resp["gridupdate"]=true;
+						$deslocamentoEmMinutos += $gridConfig ["intervalo2"];
 					}
 				}
 			}
-			$this->close ( $result );
+		} else {
+			syslog ( LOG_INFO, "Nenhuma equipe no grid" );
 		}
-		
-		$this->startOutput ( $callback );
-		
-		echo json_encode ( $resp );
-		$this->endOutput ( null );
+		return $deslocamentoEmMinutos;
+	}
+	private function insertEquipeGrid($db, $idEquipe, $idEtapa, $hora, $minuto, $configId) {
+		$sql = 'insert into Grid (id_Equipe,id_Etapa,hora,minuto,id_Config,type) values (?,?,?,?,?,?)';
+		$params = array ();
+		$params [] = $idEquipe;
+		$params [] = $idEtapa;
+		$params [] = $hora;
+		$params [] = $minuto;
+		$params [] = $configId;
+		$params [] = 0;
+		$result = $this->query ( $db, $sql, $params );
+		$hasEntry = $this->affected_rows ( $db, $result );
+		if ($hasEntry == 0) {
+			$this->exitWith ( "Cannot insertEquipeGrid row", 401, 990 );
+		}
 	}
 }
 
