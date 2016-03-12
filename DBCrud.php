@@ -2,6 +2,7 @@
 define ( 'MISSING_PWD', '801' );
 define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
+define ( 'CONFIRMING_USER_NO_PWD', '803' );
 define ( 'GENERIC_DB_ERROR', '990' );
 date_default_timezone_set("America/Sao_Paulo");
 class MySQL_CRUD_API extends REST_CRUD_API {

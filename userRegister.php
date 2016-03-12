@@ -53,30 +53,44 @@ class UserApi extends MySQL_CRUD_API {
 		} else {
 			// ja existe, pode estar vindo pelo facebook
 			if ($row = $result->fetch_assoc ()) {
-				$existingUser = json_encode ( $row );
+				$existingUser =  $row ;
 			}
+			
 			$this->close ( $result );
-			syslog ( LOG_INFO, "Usuário " . $data->fbId . " " . $existingUser->fbId );
-			if (! $data->fbId) {
-				$this->exitWith ( "Usuario já existe", 403, DUPE_USER );
-			} else if ($existingUser->fbId != null && strcmp ( $data->fbId, $existingUser->fbId )) {
+			
+			if (!$data->fbId || $data->fbId==NULL) {				
+				if(strcmp($existingUser["state"],"ACTIVE")==0){
+					$this->exitWith ( "Usuario já existe", 403, DUPE_USER );
+				}else if(!$data->password){
+					$this->exitWith ( "Senha é obrigatória", 403, CONFIRMING_USER_NO_PWD );
+				}
+
+				
+			} else if ($existingUser["fbId"] != null && strcmp ( $data->fbId, $existingUser["fbId"] )) {
 				$this->exitWith ( "Usuário FB divergente", 403, DIVERGENT_FB );
 			}
 			$params = array ();
 			$sql = 'UPDATE "!" SET ';
 			$params [] = "Trekker";
 			
-			if ($existingUser->fbId == null) { // ) {
+			if ($existingUser["fbId"] == null) { // ) {
 				$sql .= '"!"=?,';
 				$params [] = 'fbId';
 				$params [] = $data->fbId;
 			}
-			if ($data->telefone == null) {
+			if(!$data->fbId && $data->password){
+				$sql .= '"!"=?,';
+				$pwd = md5 ( $data->password );
+				$params [] = 'password';
+				$params [] = $pwd;
+			}
+				
+			if ($data->telefone != null) {
 				$sql .= '"!"=?,';
 				$params [] = 'telefone';
 				$params [] = $data->telefone;
 			}
-			if ($data->nome == null) {
+			if ($data->nome != null) {
 				$sql .= '"!"=?,';
 				$params [] = 'nome';
 				$params [] = $data->nome;
