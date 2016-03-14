@@ -4,7 +4,7 @@ define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
 define ( 'CONFIRMING_USER_NO_PWD', '803' );
 define ( 'GENERIC_DB_ERROR', '990' );
-date_default_timezone_set("America/Sao_Paulo");
+date_default_timezone_set ( "America/Sao_Paulo" );
 class MySQL_CRUD_API extends REST_CRUD_API {
 	protected $queries = array (
 			'reflect_table' => 'SELECT "TABLE_NAME" FROM "INFORMATION_SCHEMA"."TABLES" WHERE "TABLE_NAME" COLLATE \'utf8_bin\' = ? AND "TABLE_SCHEMA" = ?',
@@ -795,14 +795,14 @@ class REST_CRUD_API {
 				$key [1],
 				$key [0] 
 		) )) {
-			$colInfo = $this->getColInfo ( $result,TRUE );
+			$colInfo = $this->getColInfo ( $result, TRUE );
 			$object = $this->fetch_assoc ( $result );
 			$object = $this->getObject ( $object, $colInfo );
-// 			foreach ( $fields [$tables [0]] as $field ) {
-// 				if ($this->is_binary_type ( $field ) && $object [$field->name]) {
-// 					$object [$field->name] = $this->base64_encode ( $object [$field->name] );
-// 				}
-// 			}
+			// foreach ( $fields [$tables [0]] as $field ) {
+			// if ($this->is_binary_type ( $field ) && $object [$field->name]) {
+			// $object [$field->name] = $this->base64_encode ( $object [$field->name] );
+			// }
+			// }
 			$this->close ( $result );
 		}
 		return $object;
@@ -1102,11 +1102,26 @@ class REST_CRUD_API {
 			} else {
 				$colInfo [] = $column_info->type;
 			}
-			// 
+			//
 		}
 		return $colInfo;
 	}
-
+	protected function getEntity($db, $sql, $params) {
+		$response = "";
+		
+		if ($result = $this->query ( $db, $sql, $params )) {
+			$colInfo = $this->getColInfo ( $result );
+			if ($row = $this->fetch_assoc ( $result )) {
+				
+				$response .= $this->getObject ( $row, $colInfo );
+			}
+			$this->close ( $result );
+		} else {
+			syslog ( LOG_INFO, "nao achou " );
+		}
+		
+		return $response;
+	}
 	protected function getObject($row, $colInfo) {
 		$keys = array_keys ( $row );
 		$response = "{";
@@ -1115,10 +1130,10 @@ class REST_CRUD_API {
 			$response .= "\"" . $key . "\":";
 			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1) {
 				
-			if(is_nan($row [$key])|| $row[$key]==null){
+				if (is_nan ( $row [$key] ) || $row [$key] == null) {
 					$response .= "null";
-				}else{
-					$response .= $row [$key];					
+				} else {
+					$response .= $row [$key];
 				}
 			} else {
 				$response .= "\"" . $row [$key] . "\"";
@@ -1197,7 +1212,7 @@ class REST_CRUD_API {
 			echo ',"records":[';
 			$first_row = true;
 			
-			$colInfo = $this->getColInfo ( $result ,FALSE);
+			$colInfo = $this->getColInfo ( $result, FALSE );
 			
 			while ( $row = $this->fetch_row ( $result ) ) {
 				if ($first_row)
@@ -1296,11 +1311,11 @@ class REST_CRUD_API {
 		extract ( $parameters );
 		
 		$object = $this->retrieveObject ( $key, $fields, $tables, $db );
-		if (! $object){
+		if (! $object) {
 			$this->exitWith404 ( 'object' );
 		}
 		$this->startOutput ( $callback );
-		echo  $object ;
+		echo $object;
 		$this->endOutput ( $callback );
 	}
 	protected function createCommand($parameters) {

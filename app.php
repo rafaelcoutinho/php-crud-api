@@ -1,4 +1,10 @@
 <?php
+use \google\appengine\api\mail\Message;
+
+
+
+
+
 include 'DBCrud.php';
 include 'connInfo.php';
 class AppApi extends MySQL_CRUD_API {
@@ -16,14 +22,7 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return $pos ? substr ( $request, $pos ) : '';
 	}
-	protected function getColInfo($result) {
-		$colInfo = array ();
-		while ( $column_info = $result->fetch_field () ) {
-			$colInfo [$column_info->name] = $column_info->type;
-			// syslog ( LOG_INFO, $column_info->name . " == " . $column_info->type );
-		}
-		return $colInfo;
-	}
+	
 	protected function listTable($db, $sql, $params) {
 		$response = "";
 		
@@ -42,22 +41,7 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return "[" . $response . "]";
 	}
-	protected function getEntity($db, $sql, $params) {
-		$response = "";
-		
-		if ($result = $this->query ( $db, $sql, $params )) {
-			$colInfo = $this->getColInfo ( $result );
-			if ($row = $this->fetch_assoc ( $result )) {
-				
-				$response .= $this->getObject ( $row, $colInfo );
-			}
-			$this->close ( $result );
-		} else {
-			syslog ( LOG_INFO, "nao achou " );
-		}
-		
-		return $response;
-	}
+	
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -106,7 +90,32 @@ class AppApi extends MySQL_CRUD_API {
 					}
 				}
 			}
-		} else {
+		} else if (strcmp ( $paths [0], "Competidor" ) == 0) {
+			$l = count ( $paths );
+			if ($l == 1) {
+				
+				$resp = $this->listTable ( $db, "select * from Competidor ", array () );
+				// listar todos
+			} else {
+				$id = $paths [1];
+				if ($l == 2) {
+					$resp = $this->getEntity ( $db, "select * from Competidor where e.id=?", array (
+							$id 
+					) );
+				} else {
+					syslog ( LOG_INFO, "Pegar Equipe " . $paths [0] . "/" . $paths [1] . "/" . $paths [2] );
+					if (strcmp ( $paths [2], "Equipe" ) == 0) {
+						$equipe = $this->getEntity ( $db, "select eq.*,cat.nome as categoria from Equipe eq, Categoria cat where cat.id=eq.id_Categoria and eq.id=(select id_Equipe from Trekker_Equipe where id_Trekker=? and end=0)", array (
+								$id 
+						) );
+						$integrantes = $this->listTable ( $db, "select * from Competidor where id_Equipe=(select id_Equipe from Trekker_Equipe where id_Trekker=? and end=0)", array (
+								$id 
+						) );
+						$resp = "{\"equipe\":" . $equipe . ",\"integrantes\":" . $integrantes . "}";
+					}
+				}
+			}
+		}  else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}
 		
