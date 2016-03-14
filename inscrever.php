@@ -4,23 +4,7 @@ include 'connInfo.php';
 
 $adfasdf = $configArray;
 class InscricaoApi extends MySQL_CRUD_API {
-    protected function associaTrekkerEquipe($db,$id_Trekker,$id_Equipe,$milliseconds){
-        
-        $result = $this->query($db,'update Trekker_Equipe set end=(UNIX_TIMESTAMP()*1000) where id_Trekker='.$id_Trekker.' and id_Equipe<>'.$id_Equipe.' and end=0');
-        $hasEntry=$this->affected_rows($db, $result);
-        
-         syslog ( LOG_INFO, "Remocao de equipe retornou ".$hasEntry);
-        $params = array (
-					mysqli_real_escape_string ( $db, $id_Trekker ),
-					mysqli_real_escape_string ( $db, $id_Equipe ),
-					mysqli_real_escape_string ( $db, $milliseconds ),
-					 
-			);
-        $resultId = $this->query($db,'INSERT INTO Trekker_Equipe (id_Trekker,id_Equipe,start) VALUES (?,?,?)',$params);
-        if($resultId==1){
-            syslog ( LOG_INFO, "Novo membro inserido ". $resultId);
-        }
-    }
+   
     protected function validateInscricao($db,$id_Equipe,$id_Etapa,$id_Lider,$integrantes_Ids,$participantes ){
  
         $sqlParam = "";
@@ -60,28 +44,34 @@ class InscricaoApi extends MySQL_CRUD_API {
         $affected = $this->affected_rows($db, $result);
          syslog ( LOG_INFO, "apagou  ".$affected);
     }
-    protected function createInscricao($db,$id_Trekker,$id_Etapa,$milliseconds){
+    protected function createInscricao($db,$id_Trekker,$id_Equipe,$id_Etapa,$milliseconds){
         
         $params = array (
 					mysqli_real_escape_string ( $db, $id_Trekker ),
+        			mysqli_real_escape_string ( $db, $id_Equipe ),
 					mysqli_real_escape_string ( $db, $id_Etapa ),
 					mysqli_real_escape_string ( $db, $milliseconds ),
 					 
 			);
-        $result = $this->query($db,'INSERT INTO Inscricao (id_Trekker,id_Etapa,data) VALUES (?,?,?)',$params);
+        $result = $this->query($db,'INSERT INTO Inscricao (id_Trekker,id_Equipe,id_Etapa,data) VALUES (?,?,?,?)',$params);
     }
-    protected function saveTrekker($db,$data){
+    protected function saveTrekker($db,$data,$type){
             // criar novo.
 			if ($data->nome == null) {
 				$this->exitWith ( "Missing nome trekker", 401, 801 );
 			}
+			if (filter_var($data->email, FILTER_VALIDATE_EMAIL)) {
+				
+				$type="PASSIVE_EMAIL";	
+			}
+			
 			$params = array (
 					mysqli_real_escape_string ( $db, $data->email ),
 					mysqli_real_escape_string ( $db, $pwd ),
 					mysqli_real_escape_string ( $db, $data->nome ),
 					mysqli_real_escape_string ( $db, $data->fbId ),
 					mysqli_real_escape_string ( $db, $data->telefone ),
-                    mysqli_real_escape_string ( $db, "INSCRIPTION" ) 
+                    mysqli_real_escape_string ( $db, $type ) 
                      
 			);
 			$sql = "insert into Trekker (email,password,nome,fbId,telefone,state) VALUES (?,?,?,?,?,?)";
@@ -149,7 +139,7 @@ class InscricaoApi extends MySQL_CRUD_API {
         $idLider = $data->lider->id;
         if($data->lider->id==-1){
             syslog ( LOG_INFO, "Lider é novo usuário, criando" );
-            $idLider = $this->saveTrekker($db,$data->lider);                
+            $idLider = $this->saveTrekker($db,$data->lider,"INSCRIPTION");                
         }
         
         if($idLider==-1){
@@ -162,8 +152,8 @@ class InscricaoApi extends MySQL_CRUD_API {
         $this->validateInscricao($db,$idEquipe, $data->etapa->id,$idLider,$data->integrantes,$participantes);
         
         $milliseconds = (round(microtime(true) * 1000));
-        $this->associaTrekkerEquipe($db,$idLider,$idEquipe,$milliseconds);
-        $this->createInscricao($db,$idLider,$data->etapa->id,$milliseconds);
+//         $this->associaTrekkerEquipe($db,$idLider,$idEquipe,$milliseconds);
+        $this->createInscricao($db,$idLider,$idEquipe,$data->etapa->id,$milliseconds);
         
          syslog ( LOG_INFO,"Há ".$participantes."  integrantes ");
         $integrantes = array();
@@ -174,11 +164,11 @@ class InscricaoApi extends MySQL_CRUD_API {
             $idIntegrante =$integrante->id;
             syslog ( LOG_INFO, "IntegranteId ".$idIntegrante ); 
             if(!$idIntegrante){
-                $idIntegrante = $this->saveTrekker($db,$integrante);
+                $idIntegrante = $this->saveTrekker($db,$integrante,"PASSIVE");
             }
             
             
-            $this->associaTrekkerEquipe($db,$idIntegrante,$idEquipe,$milliseconds);
+//             $this->associaTrekkerEquipe($db,$idIntegrante,$idEquipe,$milliseconds);
             $this->createInscricao($db,$idIntegrante,$data->etapa->id,$milliseconds);
             $integrantes[] = array(
                 'id' => $idIntegrante

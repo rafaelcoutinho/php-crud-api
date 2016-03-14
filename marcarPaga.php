@@ -4,6 +4,22 @@ include 'connInfo.php';
 
 $adfasdf = $configArray;
 class AdicionarAoGrid extends MySQL_CRUD_API {
+	protected function associaTrekkerEquipe($db, $id_Trekker, $id_Equipe, $milliseconds) {
+		$result = $this->query ( $db, 'update Trekker_Equipe set end=(UNIX_TIMESTAMP()*1000) where id_Trekker=' . $id_Trekker . ' and id_Equipe<>' . $id_Equipe . ' and end=0' );
+		$hasEntry = $this->affected_rows ( $db, $result );
+		
+		syslog ( LOG_INFO, "Remocao de equipe retornou " . $hasEntry );
+		$params = array (
+				mysqli_real_escape_string ( $db, $id_Trekker ),
+				mysqli_real_escape_string ( $db, $id_Equipe ),
+				mysqli_real_escape_string ( $db, $milliseconds ) 
+		)
+		;
+		$resultId = $this->query ( $db, 'INSERT INTO Trekker_Equipe (id_Trekker,id_Equipe,start) VALUES (?,?,?)', $params );
+		if ($resultId == 1) {
+			syslog ( LOG_INFO, "Novo membro inserido " . $resultId );
+		}
+	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -16,7 +32,7 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 		$request_body = file_get_contents ( 'php://input' );
 		$data = json_decode ( $request_body );
 		
-		if (! $data->id_Etapa || ! $data->id_Trekker) {
+		if (! $data->id_Etapa || ! $data->id_Trekker || ! $data->id_Equipe) {
 			$this->exitWith ( "Missing parameters", 400 );
 			return;
 		}
@@ -27,9 +43,9 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 		$resp ["gridUpdate"] = false;
 		if ($data->paga == 1) {
 			
-			$equipe = $this->getEquipe ( $db, $data->id_Trekker );
+			$equipe = $this->getEquipe ( $db, $data->id_Equipe );
 			
-			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $equipe ["id_Equipe"] );
+			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $data->id_Equipe );
 			if ($gridInfo == null) {
 				
 				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
@@ -61,9 +77,10 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 				$resp ["gridUpdate"] = true;
 			}
 		} else {
-			
 			$this->updateInscricao ( $db, $data );
 		}
+		$milliseconds = (round ( microtime ( true ) * 1000 ));
+		$this->associaTrekkerEquipe ( $db, $data->id_Trekker, $data->id_Equipe, $milliseconds );
 		
 		$this->startOutput ( $callback );
 		echo json_encode ( $resp );
@@ -139,7 +156,7 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 		return null;
 	}
 	private function getEquipe($db, $id_Trekker) {
-		$sql = "select id_Equipe,id_Categoria from Competidor_Equipe where id_Trekker=?";
+		$sql = "select id_Equipe,id_Categoria from Competidor_Equipe where id_Equipe=?";
 		$params = array ();
 		$params [] = $id_Trekker;
 		$equipe = array ();

@@ -1116,10 +1116,9 @@ class REST_CRUD_API {
 			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1) {
 				
 			if(is_nan($row [$key])|| $row[$key]==null){
-				$response .= "null";
+					$response .= "null";
 				}else{
-					$response .= $row [$key];
-					
+					$response .= $row [$key];					
 				}
 			} else {
 				$response .= "\"" . $row [$key] . "\"";

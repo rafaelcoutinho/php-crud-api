@@ -1,8 +1,6 @@
 <?php
 include 'DBCrud.php';
 include 'connInfo.php';
-
-
 class AppApi extends MySQL_CRUD_API {
 	protected function removePrefix($request) {
 		if (! $request)
@@ -26,7 +24,6 @@ class AppApi extends MySQL_CRUD_API {
 		}
 		return $colInfo;
 	}
-	
 	protected function listTable($db, $sql, $params) {
 		$response = "";
 		
@@ -87,13 +84,13 @@ class AppApi extends MySQL_CRUD_API {
 			$l = count ( $paths );
 			if ($l == 1) {
 				
-				$resp = $this->listTable ( $db, "select * from Etapa", array () );
+				$resp = $this->listTable ( $db, "select e.*,l.nome from Etapa e left join Local l on  e.id_Local=l.id", array () );
 				
 				// listar todos
 			} else {
 				$idEtapa = $paths [1];
 				if ($l == 2) {
-					$resp = $this->getEntity ( $db, "select * from Etapa where id=?", array (
+					$resp = $this->getEntity ( $db, "select * from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
 							$idEtapa 
 					) );
 				} else {
@@ -109,8 +106,8 @@ class AppApi extends MySQL_CRUD_API {
 					}
 				}
 			}
-		}else{
-			$this->exitWith ( "Sem match ".serialize($paths) , 404, 1 );
+		} else {
+			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}
 		
 		$this->startOutput ( null );
