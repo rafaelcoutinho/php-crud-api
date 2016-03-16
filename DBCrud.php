@@ -78,7 +78,7 @@ class MySQL_CRUD_API extends REST_CRUD_API {
 				return 'NULL';
 			return "'" . mysqli_real_escape_string ( $db, $param ) . "'";
 		}, $sql );
-		syslog ( LOG_INFO, "SQL " . $sql );
+		syslog ( LOG_DEBUG, "SQL " . $sql );
 		
 		return mysqli_query ( $db, $sql );
 	}
@@ -486,7 +486,7 @@ class REST_CRUD_API {
 				return 'delete';
 			
 			default :
-				syslog ( LOG_INFO, "DEFAULT " . $method );
+				syslog ( LOG_ERR, "DEFAULT " . $method );
 				$this->exitWith404 ( 'method' );
 		}
 		return false;
@@ -541,7 +541,7 @@ class REST_CRUD_API {
 			$counter ++;
 			$name = $namePrefix . $counter;
 		}
-		syslog ( LOG_INFO, "Values" . serialize ( $paramVals ) );
+		
 		return $paramVals;
 	}
 	protected function applyTableAuthorizer($callback, $action, $database, &$tables) {
@@ -700,7 +700,7 @@ class REST_CRUD_API {
 			$this->close ( $result );
 		}
 		if ($count != 1 || $field == false) {
-			syslog ( LOG_INFO, "Checking if it's a view" );
+			
 			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], array (
 					$tables [0],
 					$database 
@@ -709,9 +709,9 @@ class REST_CRUD_API {
 					$type = $row [0];
 				}
 				$this->close ( $result );
-				syslog ( LOG_INFO, "Type " . $type );
+				
 				if ($type == "VIEW") {
-					syslog ( LOG_INFO, "It is a view!!!" );
+				
 					// guess it's the ID field;
 					return array (
 							$key,
@@ -1042,14 +1042,14 @@ class REST_CRUD_API {
 		// $tables = $this->parseRequestParameter($request, 'a-zA-Z0-9\-_*,');
 		// $key = $this->parseRequestParameter(str_replace($tables,"",$request), 'a-zA-Z0-9\-,'); // auto-increment or uuid
 		$action = $this->mapMethodToAction ( $method, $key );
-		syslog ( LOG_INFO, "$action = " . strcmp ( $action, 'headers' ) );
+		
 		
 		if ($action == 'create' && $key != null && $key != - 1) {
 			$action = 'update';
 		}
 		$path_only = parse_url ( $_SERVER ['REQUEST_URI'], PHP_URL_PATH );
 		
-		syslog ( LOG_INFO, 'Action is ' . $action . ' due to ' . $method . '  ' . $path_only . ' - ' . $_SERVER ['PHP_SELF'] );
+		syslog ( LOG_DEBUG, 'Action is ' . $action . ' due to ' . $method . '  ' . $path_only . ' - ' . $_SERVER ['PHP_SELF'] );
 		$callback = $this->parseGetParameter ( $get, 'callback', 'a-zA-Z0-9\-_' );
 		$page = $this->parseGetParameter ( $get, 'page', '0-9,' );
 		$filters = $this->parseGetParameterFakeArray ( $get, 'filter', false );
@@ -1075,11 +1075,12 @@ class REST_CRUD_API {
 		// permissions
 		if ($table_authorizer)
 			$this->applyTableAuthorizer ( $table_authorizer, $action, $database, $tables );
-		if ($column_authorizer)
+		if ($column_authorizer){			
 			$this->applyColumnAuthorizer ( $column_authorizer, $action, $database, $fields );
+		}
 		
 		if ($post) {
-			syslog ( LOG_INFO, 'POST section' );
+			
 			// input
 			$context = $this->retrieveInput ( $post );
 			$input = $this->filterInputByColumns ( $context, $fields [$tables [0]] );
@@ -1321,7 +1322,7 @@ class REST_CRUD_API {
 	protected function createCommand($parameters) {
 		extract ( $parameters );
 		if (! $input) {
-			syslog ( LOG_INFO, 'Cannot create cuz no input found' );
+			
 			$this->exitWith404 ( 'input' );
 		}
 		
@@ -1337,7 +1338,7 @@ class REST_CRUD_API {
 					"id" 
 			];
 			
-			syslog ( LOG_INFO, "id " . $id . " params " . $parameters );
+			
 			
 			$this->readCommand ( $parameters );
 		}

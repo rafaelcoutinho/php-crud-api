@@ -7,8 +7,10 @@ class PubAppApi extends MySQL_CRUD_API {
 	public function executeCommand() {
 		if (isset($_SERVER['REQUEST_METHOD'])) {
 			header('Access-Control-Allow-Origin: *');
-			header('pub: true');
+		
 		}
+			
+		
 		$parameters = $this->getParameters($this->settings);
 		switch($parameters['action']){
 			case 'list': $this->listCommand($parameters); break;
@@ -20,10 +22,10 @@ class PubAppApi extends MySQL_CRUD_API {
 		}
 	}
 }
-
+$configArray['column_authorizer']= function($action,$database,$table,$column) { return !($column=='email'&&$action=='list')&& !($column=='password'&&$action=='read')  && !($column=='password'&&$action=='list') && !($column=='telefone'&&$action=='list') ; };
 $api = new PubAppApi ( $configArray );
 
 $api->configArray = $configArray;
 
 $api->executeCommand ();
-?>
+?>	
