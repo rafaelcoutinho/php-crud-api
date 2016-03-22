@@ -27,7 +27,7 @@ class AppApi extends MySQL_CRUD_API {
 		$response = "";
 		
 		if ($result = $this->query ( $db, $sql, $params )) {
-			$colInfo = $this->getColInfo ( $result );
+			$colInfo = $this->getColInfo ( $result,true );
 			while ( $row = $this->fetch_assoc ( $result ) ) {
 				$response .= $this->getObject ( $row, $colInfo );
 				$response .= ",";
