@@ -13,8 +13,7 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 				mysqli_real_escape_string ( $db, $id_Trekker ),
 				mysqli_real_escape_string ( $db, $id_Equipe ),
 				mysqli_real_escape_string ( $db, $milliseconds ) 
-		)
-		;
+		);
 		$resultId = $this->query ( $db, 'INSERT INTO Trekker_Equipe (id_Trekker,id_Equipe,start) VALUES (?,?,?)', $params );
 		if ($resultId == 1) {
 			syslog ( LOG_INFO, "Novo membro inserido " . $resultId );
@@ -155,28 +154,28 @@ class AdicionarAoGrid extends MySQL_CRUD_API {
 		}
 		return null;
 	}
-	private function getEquipe($db, $id_Trekker) {
-		$sql = "select id_Equipe,id_Categoria from Competidor_Equipe where id_Equipe=?";
+	private function getEquipe($db, $idEquipe) {
+		$sql = "select id,id_Categoria from Equipe e where id=?";
 		$params = array ();
-		$params [] = $id_Trekker;
+		$params [] = $idEquipe;
 		$equipe = array ();
 		
 		$result = $this->query ( $db, $sql, $params );
 		if ($result) {
 			if ($row = $this->fetch_assoc ( $result )) {
 				
-				$equipe ["id_Equipe"] = $row ["id_Equipe"];
+				$equipe ["id_Equipe"] = $row ["id"];
 				$equipe ["id_Categoria"] = $row ["id_Categoria"];
 				$this->close ( $result );
 				return $equipe;
 			} else {
 				$this->close ( $result );
-				$this->exitWith ( "Missing parameters", 500 );
+				$this->exitWith ( "nao foi possivel iterar na tabela de equipes", 500 );
 			}
 		} else {
 			syslog ( LOG_INFO, "Equipe não existe!!" );
 			$this->close ( $result );
-			$this->exitWith ( "Missing parameters", 500 );
+			$this->exitWith ( "Equipe $idEquipe não existe", 500 );
 		}
 	}
 	private function getGridInfo($db, $idEtapa, $idEquipe) {
