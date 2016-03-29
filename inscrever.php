@@ -46,8 +46,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 				mysqli_real_escape_string ( $db, $id_Equipe ),
 				mysqli_real_escape_string ( $db, $id_Etapa ),
 				mysqli_real_escape_string ( $db, $milliseconds ) 
-		)
-		;
+		);
 		$result = $this->query ( $db, 'INSERT INTO Inscricao (id_Trekker,id_Equipe,id_Etapa,data) VALUES (?,?,?,?)', $params );
 	}
 	protected function saveTrekker($db, $data, $type) {
@@ -67,8 +66,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 				mysqli_real_escape_string ( $db, $data->fbId ),
 				mysqli_real_escape_string ( $db, $data->telefone ),
 				mysqli_real_escape_string ( $db, $type ) 
-		)
-		;
+		);
 		$sql = "insert into Trekker (email,password,nome,fbId,telefone,state) VALUES (?,?,?,?,?,?)";
 		$result = $this->query ( $db, $sql, $params );
 		if (! $result) {
@@ -110,6 +108,25 @@ class InscricaoApi extends MySQL_CRUD_API {
 			$this->headersCommand ( NULL );
 		}
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
+			return;
+		}
+		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "DELETE" ) == 0) {
+			$idEquipe = $_GET ["id_Equipe"];
+			$idEtapa = $_GET ["id_Etapa"];
+			$idTrekker = $_GET ["id_Trekker"];
+			$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
+			
+			$result = $this->query ( $db, 'DELETE FROM Inscricao WHERE id_Equipe = ? and id_Etapa=? and id_Trekker=?', array (
+					$idEquipe,
+					$idEtapa,
+					$idTrekker 
+			) );
+			$num = $this->affected_rows ( $db, $result );
+			
+			$this->startOutput ( $callback );
+			
+			echo json_encode ( $num );
+			$this->endOutput ( null );
 			return;
 		}
 		
