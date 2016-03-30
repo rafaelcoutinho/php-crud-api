@@ -10,7 +10,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$sqlTrekkerParams [] = $id_Equipe;
 		$sqlTrekkerParams [] = $id_Etapa;
 		
-		syslog ( LOG_INFO, "val " . $participantes );
+		
 		for($i = 0; $i < $participantes; $i ++) {
 			if ($integrantes_Ids [$i]->id != null) {
 				syslog ( LOG_INFO, "participante " . $i . ":" . $integrantes_Ids [$i]->id );
@@ -22,7 +22,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$sqlParam .= '?';
 		$sqlTrekkerParams [] = $id_Lider;
 		
-		$result = $this->query ( $db, 'select id_Trekker from Inscricao where id_Trekker in (select id_Trekker from Trekker_Equipe where id_Equipe=?) and id_Etapa=? and id_Trekker not in (' . $sqlParam . ')  and paga=(1)', $sqlTrekkerParams );
+		$result = $this->query ( $db, 'select id_Trekker from Inscricao where id_Equipe=? and id_Etapa=? and id_Trekker not in (' . $sqlParam . ')  and paga=(1)', $sqlTrekkerParams );
 		syslog ( LOG_INFO, "result->num_rows " . $result->num_rows );
 		if ($result) {
 			if ($row = $this->fetch_row ( $result )) {
@@ -36,7 +36,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 				mysqli_real_escape_string ( $db, $id_Equipe ),
 				mysqli_real_escape_string ( $db, $id_Etapa ) 
 		);
-		$result = $this->query ( $db, 'delete from Inscricao where id_Trekker in (select id_Trekker from Trekker_Equipe where id_Equipe=?) and id_Etapa=?', $paramsDelete );
+		$result = $this->query ( $db, 'delete from Inscricao where id_Equipe=? and id_Etapa=? and paga<>(1)', $paramsDelete );
 		$affected = $this->affected_rows ( $db, $result );
 		syslog ( LOG_INFO, "apagou  " . $affected );
 	}

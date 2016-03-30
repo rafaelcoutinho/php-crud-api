@@ -1,10 +1,6 @@
 <?php
 use \google\appengine\api\mail\Message;
 
-
-
-
-
 include 'DBCrud.php';
 include 'connInfo.php';
 class AppApi extends MySQL_CRUD_API {
@@ -22,12 +18,11 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return $pos ? substr ( $request, $pos ) : '';
 	}
-	
 	protected function listTable($db, $sql, $params) {
 		$response = "";
 		
 		if ($result = $this->query ( $db, $sql, $params )) {
-			$colInfo = $this->getColInfo ( $result,true );
+			$colInfo = $this->getColInfo ( $result, true );
 			while ( $row = $this->fetch_assoc ( $result ) ) {
 				$response .= $this->getObject ( $row, $colInfo );
 				$response .= ",";
@@ -41,7 +36,6 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return "[" . $response . "]";
 	}
-	
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -87,6 +81,11 @@ class AppApi extends MySQL_CRUD_API {
 								$idEtapa 
 						) );
 						$resp = "{\"grid\":" . $grid . ",\"preGrid\":" . $preGrid . "}";
+					} else if (strcmp ( $paths [2], "OutOfGrid" ) == 0) {
+						$resp = $this->listTable ( $db, "SELECT * FROM northdb.InscricaoFull ins where id_Equipe not in (select id_Equipe from Grid g where g.id_Etapa=?) and id_Etapa=? and paga=1;", array (
+								$idEtapa,
+								$idEtapa 
+						) );
 					}
 				}
 			}
@@ -115,7 +114,35 @@ class AppApi extends MySQL_CRUD_API {
 					}
 				}
 			}
-		}  else {
+		} else if (strcmp ( $paths [0], "CompetidorInscricao" ) == 0) {
+			$id = $paths [1];
+			$sql = "SELECT
+		`c`.`id` AS `id`,
+		`c`.`id` AS `id_Trekker`,
+		`c`.`email` AS `email`,
+		`c`.`nome` AS `nome`,
+		`c`.`fbId` AS `fbId`,
+		`c`.`id_Equipe` AS `id_Equipe`,
+		`c`.`equipe` AS `equipe`,
+		`c`.`categoria` AS `categoria`,
+		`ins`.`nome_Equipe` AS `ins_EquipeNome`,
+		`ins`.`id_Equipe` AS `ins_EquipeId`,
+		`ins`.`categoria` AS `ins_CategoriaNome`,
+		`ins`.`id_Categoria` AS `ins_CategoriaId`,
+		`ins`.`id_Etapa` AS `id_Etapa`,
+		`ins`.`paga` AS `paga`,
+		`ins`.`data` AS `ins_Data`
+		FROM
+		(
+				`northdb`.`Competidor` `c` LEFT JOIN
+				(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from `northdb`.`InscricaoFull` where id_Etapa=?) `ins`
+				ON (`ins`.`id_Trekker` = `c`.`id`) )";
+			$resp = $this->listTable ( $db, $sql, array (
+					$id 
+			) );
+		} 
+
+		else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}
 		

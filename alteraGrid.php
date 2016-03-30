@@ -1,13 +1,29 @@
 <?php
-include 'DBCrud.php';
-include 'connInfo.php';
-class AtualizaGrid extends MySQL_CRUD_API {
+include 'gridCommons.php';
+class AtualizaGrid extends GridCommons {
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
 			$this->headersCommand ( NULL );
 		}
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
+			return;
+		}
+		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "DELETE" ) == 0) {
+			$idEquipe = $_GET ["id_Equipe"];
+			$idEtapa = $_GET ["id_Etapa"];
+			$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
+			
+			$result = $this->query ( $db, 'DELETE FROM Grid WHERE id_Equipe = ? and id_Etapa=? ', array (
+					$idEquipe,
+					$idEtapa 
+			) );
+			$num = $this->affected_rows ( $db, $result );
+			
+			$this->startOutput ( $callback );
+			
+			echo json_encode ( $num );
+			$this->endOutput ( null );
 			return;
 		}
 		
@@ -24,66 +40,20 @@ class AtualizaGrid extends MySQL_CRUD_API {
 		$resp = array ();
 		
 		$dataEtapa = $this->getDataEtapa ( $db, $data->id_Etapa );
+		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "POST" ) == 0) {
+			$gridConfig = $this->getGridConfig ( $db, $data->categoria_Equipe );
+			$this->insertEquipeGrid ( $db, $data->id_Equipe, $data->id_Etapa, $data->hora, $data->minuto, $gridConfig ["id"] );
+		} else {
+			$this->updateEquipeGrid ( $db, $data->id_Equipe, $data->id_Etapa, $data->hora, $data->minuto );
+		}
 		
-		syslog ( LOG_INFO, "data etapa $dataEtapa" );
+		$resp = $this->getGridInfo ( $db, $data->id_Etapa, $data->id_Equipe );
 		
-		$this->updateEquipeGrid ( $db, $data->id_Equipe, $data->id_Etapa, $data->hora, $data->minuto );
 		
-		$resp = $this->getGridInfo ( $db, $data->id_Equipe, $data->id_Etapa );
 		
 		$this->startOutput ( $callback );
 		echo ($resp);
 		$this->endOutput ( null );
-	}
-	private function getGridInfo($db, $idEquipe, $idEtapa) {
-		$sql = 'SELECT * from Grid where id_Equipe=? and id_Etapa=?';
-		$params = array ();
-		$params [] = $idEquipe;
-		$params [] = $idEtapa;
-		$result = $this->query ( $db, $sql, $params );
-		
-		if ($result) {
-			$colInfo = $this->getColInfo ( $result, true );
-			if ($row = $this->fetch_assoc ( $result )) {
-				return $this->getObject ( $row, $colInfo );
-			} else {
-				
-				$this->exitWith ( "Não achou etapa", 400, 990 );
-			}
-		} else {
-			$this->exitWith ( "Não achou etapa", 400, 990 );
-		}
-	}
-	private function getDataEtapa($db, $idEtapa) {
-		$sql = 'SELECT data from Etapa where id=?';
-		$params = array ();
-		$params [] = $idEtapa;
-		$result = $this->query ( $db, $sql, $params );
-		
-		if ($result) {
-			if ($row = $this->fetch_assoc ( $result )) {
-				return $row ["data"];
-			} else {
-				
-				$this->exitWith ( "Não achou etapa", 400, 990 );
-			}
-		} else {
-			$this->exitWith ( "Não achou etapa", 400, 990 );
-		}
-	}
-	private function updateEquipeGrid($db, $idEquipe, $idEtapa, $hora, $minuto) {
-		$sql = 'update Grid set hora=?, minuto=?,type=1 where id_Equipe=? and id_Etapa=?';
-		$params = array ();
-		$params [] = $hora;
-		$params [] = $minuto;
-		$params [] = $idEquipe;
-		$params [] = $idEtapa;
-		
-		$result = $this->query ( $db, $sql, $params );
-		$hasEntry = $this->affected_rows ( $db, $result );
-		if ($hasEntry == 0) {
-			$this->exitWith ( "Update has not made any changes $idEquipe, $idEtapa, $hora:$minuto", 202, 990 );
-		}
 	}
 }
 

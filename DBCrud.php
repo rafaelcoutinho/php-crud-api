@@ -1328,7 +1328,7 @@ class REST_CRUD_API {
 		
 		$id = $this->createObject ( $input, $tables, $db );
 		
-		if (strcmp ( $tables [0], "Trekker_Equipe" ) == 0 || strcmp ( $tables [0], "Inscricao" ) == 0) {
+		if (strcmp ( $tables [0], "Trekker_Equipe" ) == 0 || strcmp ( $tables [0], "Inscricao" ) == 0 || strcmp ( $tables [0], "Grid" ) == 0) {
 			$this->startOutput ( $callback );
 			echo "{\"success\":true,\"info\":\"" . $id . "\"}";
 			$this->endOutput ( $callback );
