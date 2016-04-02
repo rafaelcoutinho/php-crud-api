@@ -18,24 +18,7 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return $pos ? substr ( $request, $pos ) : '';
 	}
-	protected function listTable($db, $sql, $params) {
-		$response = "";
-		
-		if ($result = $this->query ( $db, $sql, $params )) {
-			$colInfo = $this->getColInfo ( $result, true );
-			while ( $row = $this->fetch_assoc ( $result ) ) {
-				$response .= $this->getObject ( $row, $colInfo );
-				$response .= ",";
-			}
-			$this->close ( $result );
-		} else {
-			syslog ( LOG_INFO, "nao achou " );
-		}
-		
-		$response = rtrim ( $response, "," );
-		
-		return "[" . $response . "]";
-	}
+	
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
