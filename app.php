@@ -69,6 +69,10 @@ class AppApi extends MySQL_CRUD_API {
 								$idEtapa,
 								$idEtapa 
 						) );
+					}else if (strcmp ( $paths [2], "Resultado" ) == 0) {
+						$resp = $this->listTable ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (								
+								$idEtapa 
+						) );
 					}
 				}
 			}
