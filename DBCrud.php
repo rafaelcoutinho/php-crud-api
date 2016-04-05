@@ -705,20 +705,23 @@ class REST_CRUD_API {
 					$tables [0],
 					$database 
 			) )) {
+				
 				while ( $row = $this->fetch_row ( $result ) ) {
-					$type = $row [0];
 				}
-				$this->close ( $result );
+				$type = $row [0];
 				
-				if ($type == "VIEW") {
-				
-					// guess it's the ID field;
-					return array (
-							$key,
-							'id' 
-					);
-				}
 			}
+			$this->close ( $result );
+			
+			if ($type == "VIEW") {
+				
+				// guess it's the ID field;
+				return array (
+						$key,
+						'id' 
+				);
+			}
+			
 			$this->exitWith404 ( '1pk' );
 		}
 		return array (
@@ -863,6 +866,12 @@ class REST_CRUD_API {
 			$params [] = "id_Etapa";
 			$params [] = $input ["id_Etapa"];
 			$sql .= ' WHERE "!"=? and "!"=?';
+		} else if (strcmp ( $tables [0], "Resultado" ) == 0) {
+			$params [] = "id_Equipe";
+			$params [] = $input ["id_Equipe"];
+			$params [] = "id_Etapa";
+			$params [] = $input ["id_Etapa"];
+			$sql .= ' WHERE "!"=? and "!"=?';
 		} else {
 			$params [] = $key [1];
 			$params [] = $key [0];
@@ -874,11 +883,21 @@ class REST_CRUD_API {
 		return $this->affected_rows ( $db, $result );
 	}
 	protected function deleteObject($key, $tables, $db) {
+		if (strcmp ( $tables [0], "Resultado" ) == 0) {
+			$result = $this->query ( $db, 'DELETE FROM "!" WHERE "!" = ? and "!" = ?', array (
+					$tables [0],
+					$key [3],
+					$key [2],
+					$key [1],
+					$key [0]
+			) );
+		}else{
 		$result = $this->query ( $db, 'DELETE FROM "!" WHERE "!" = ?', array (
 				$tables [0],
 				$key [1],
 				$key [0] 
 		) );
+		}	
 		return $this->affected_rows ( $db, $result );
 	}
 	protected function findRelations($tables, $database, $db) {
@@ -1043,7 +1062,6 @@ class REST_CRUD_API {
 		// $key = $this->parseRequestParameter(str_replace($tables,"",$request), 'a-zA-Z0-9\-,'); // auto-increment or uuid
 		$action = $this->mapMethodToAction ( $method, $key );
 		
-		
 		if ($action == 'create' && $key != null && $key != - 1) {
 			$action = 'update';
 		}
@@ -1059,7 +1077,21 @@ class REST_CRUD_API {
 		$transform = $this->parseGetParameter ( $get, 'transform', '1' );
 		
 		$tables = $this->processTablesParameter ( $database, $tables, $action, $db );
-		$key = $this->processKeyParameter ( $key, $tables, $database, $db );
+		if (strcmp($method,"DELETE")==0 && strcmp ( $tables [0], "Resultado" ) == 0) {
+			$key = array(
+					$_GET["id_Equipe"],
+					"id_Equipe",
+					$_GET["id_Etapa"],
+					"id_Etapa"
+					
+					
+			);
+			
+			
+		}else{
+			$key = $this->processKeyParameter ( $key, $tables, $database, $db );
+		}
+		
 		$filters = $this->processFiltersParameter ( $tables, $filters );
 		
 		if ($columns)
@@ -1075,7 +1107,7 @@ class REST_CRUD_API {
 		// permissions
 		if ($table_authorizer)
 			$this->applyTableAuthorizer ( $table_authorizer, $action, $database, $tables );
-		if ($column_authorizer){			
+		if ($column_authorizer) {
 			$this->applyColumnAuthorizer ( $column_authorizer, $action, $database, $fields );
 		}
 		
@@ -1328,7 +1360,7 @@ class REST_CRUD_API {
 		
 		$id = $this->createObject ( $input, $tables, $db );
 		
-		if (strcmp ( $tables [0], "Trekker_Equipe" ) == 0 || strcmp ( $tables [0], "Inscricao" ) == 0 || strcmp ( $tables [0], "Grid" ) == 0) {
+		if (strcmp ( $tables [0], "Trekker_Equipe" ) == 0 || strcmp ( $tables [0], "Inscricao" ) == 0 || strcmp ( $tables [0], "Grid" ) == 0 || strcmp ( $tables [0], "Resultado" ) == 0) {
 			$this->startOutput ( $callback );
 			echo "{\"success\":true,\"info\":\"" . $id . "\"}";
 			$this->endOutput ( $callback );
@@ -1337,8 +1369,6 @@ class REST_CRUD_API {
 					$id,
 					"id" 
 			];
-			
-			
 			
 			$this->readCommand ( $parameters );
 		}
@@ -1478,7 +1508,7 @@ class REST_CRUD_API {
 	}
 	protected function listTable($db, $sql, $params) {
 		$response = "";
-	
+		
 		if ($result = $this->query ( $db, $sql, $params )) {
 			$colInfo = $this->getColInfo ( $result, true );
 			while ( $row = $this->fetch_assoc ( $result ) ) {
@@ -1489,9 +1519,9 @@ class REST_CRUD_API {
 		} else {
 			syslog ( LOG_INFO, "nao achou " );
 		}
-	
+		
 		$response = rtrim ( $response, "," );
-	
+		
 		return "[" . $response . "]";
 	}
 	public function executeCommand() {

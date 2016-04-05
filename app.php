@@ -18,7 +18,6 @@ class AppApi extends MySQL_CRUD_API {
 		
 		return $pos ? substr ( $request, $pos ) : '';
 	}
-	
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -63,14 +62,17 @@ class AppApi extends MySQL_CRUD_API {
 						$preGrid = $this->listTable ( $db, "select * from PreGrid where id_Etapa=?", array (
 								$idEtapa 
 						) );
-						$resp = "{\"grid\":" . $grid . ",\"preGrid\":" . $preGrid . "}";
+						$etapa = $this->getEntity ( $db, "select * from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
+								$idEtapa 
+						) );
+						$resp = "{\"grid\":" . $grid . ",\"preGrid\":" . $preGrid . ",\"etapa\":" . $etapa . "	}";
 					} else if (strcmp ( $paths [2], "OutOfGrid" ) == 0) {
 						$resp = $this->listTable ( $db, "SELECT * FROM northdb.InscricaoFull ins where id_Equipe not in (select id_Equipe from Grid g where g.id_Etapa=?) and id_Etapa=? and paga=1;", array (
 								$idEtapa,
 								$idEtapa 
 						) );
-					}else if (strcmp ( $paths [2], "Resultado" ) == 0) {
-						$resp = $this->listTable ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (								
+					} else if (strcmp ( $paths [2], "Resultado" ) == 0) {
+						$resp = $this->listTable ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (
 								$idEtapa 
 						) );
 					}
@@ -127,8 +129,13 @@ class AppApi extends MySQL_CRUD_API {
 			$resp = $this->listTable ( $db, $sql, array (
 					$id 
 			) );
-		} 
-
+		 
+		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
+			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";
+			$resp = $this->getEntity ( $db, $sql, array (	
+			) );
+			
+		}
 		else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}
