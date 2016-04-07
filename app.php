@@ -75,6 +75,12 @@ class AppApi extends MySQL_CRUD_API {
 						$resp = $this->listTable ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (
 								$idEtapa 
 						) );
+					} else if (strcmp ( $paths [2], "Performance" ) == 0) {
+						$idEquipe = $paths [3];
+						$resp = $this->listTable ( $db, "SELECT * FROM northdb.PC pcs where pcs.id_Etapa=? and pcs.id_Equipe=?", array (
+								$idEtapa,
+								$idEquipe
+						) );
 					}
 				}
 			}
@@ -129,14 +135,10 @@ class AppApi extends MySQL_CRUD_API {
 			$resp = $this->listTable ( $db, $sql, array (
 					$id 
 			) );
-		 
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";
-			$resp = $this->getEntity ( $db, $sql, array (	
-			) );
-			
-		}
-		else {
+			$resp = $this->getEntity ( $db, $sql, array () );
+		} else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}
 		

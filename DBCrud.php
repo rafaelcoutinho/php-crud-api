@@ -63,22 +63,28 @@ class MySQL_CRUD_API extends REST_CRUD_API {
 		return mysqli_error ( $db );
 	}
 	protected function query($db, $sql, $params) {
-		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use(&$db, &$params) {
+		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use (&$db, &$params) {
 			$param = array_shift ( $params );
+			
 			if ($matches [0] == '!')
 				return preg_replace ( '/[^a-zA-Z0-9\-_=<>]/', '', $param );
 			if (is_array ( $param ))
-				return '(' . implode ( ',', array_map ( function ($v) use(&$db) {
+				return '(' . implode ( ',', array_map ( function ($v) use (&$db) {
 					return "'" . mysqli_real_escape_string ( $db, $v ) . "'";
 				}, $param ) ) . ')';
 			if (is_object ( $param ) && $param->type == 'base64') {
 				return "x'" . bin2hex ( base64_decode ( $param->data ) ) . "'";
 			}
-			if ($param === null)
+			if ($param === null) {
 				return 'NULL';
+			}
+			
+			if (is_numeric ( $param )) {
+				return $param;
+			}
 			return "'" . mysqli_real_escape_string ( $db, $param ) . "'";
 		}, $sql );
-		syslog ( LOG_DEBUG, "SQL " . $sql );
+		syslog ( LOG_DEBUG, "SQL: " . $sql );
 		
 		return mysqli_query ( $db, $sql );
 	}
@@ -224,12 +230,12 @@ class PgSQL_CRUD_API extends REST_CRUD_API {
 		return $db;
 	}
 	protected function query($db, $sql, $params) {
-		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use(&$db, &$params) {
+		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use (&$db, &$params) {
 			$param = array_shift ( $params );
 			if ($matches [0] == '!')
 				return preg_replace ( '/[^a-zA-Z0-9\-_=<>]/', '', $param );
 			if (is_array ( $param ))
-				return '(' . implode ( ',', array_map ( function ($v) use(&$db) {
+				return '(' . implode ( ',', array_map ( function ($v) use (&$db) {
 					return "'" . pg_escape_string ( $db, $v ) . "'";
 				}, $param ) ) . ')';
 			if (is_object ( $param ) && $param->type == 'base64') {
@@ -378,7 +384,7 @@ class MsSQL_CRUD_API extends REST_CRUD_API {
 	}
 	protected function query($db, $sql, $params) {
 		$args = array ();
-		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use(&$db, &$params, &$args) {
+		$sql = preg_replace_callback ( '/\!|\?/', function ($matches) use (&$db, &$params, &$args) {
 			static $i = - 1;
 			$i ++;
 			$param = $params [$i];
@@ -409,7 +415,7 @@ class MsSQL_CRUD_API extends REST_CRUD_API {
 		if (strtoupper ( substr ( $sql, 0, 6 ) ) == 'INSERT') {
 			$sql .= ';SELECT SCOPE_IDENTITY()';
 		}
-		return sqlsrv_query ( $db, $sql, $args ) ?  : null;
+		return sqlsrv_query ( $db, $sql, $args ) ?: null;
 	}
 	protected function fetch_assoc($result) {
 		$values = sqlsrv_fetch_array ( $result, SQLSRV_FETCH_ASSOC );
@@ -689,6 +695,12 @@ class REST_CRUD_API {
 		$count = 0;
 		$field = false;
 		$hasIdField = false;
+		if(strcspn($tables [0], "Competidor")==0){
+			return array (
+						$key,
+						'id' 
+				);
+		}
 		if ($result = $this->query ( $db, $this->queries ['reflect_pk'], array (
 				$tables [0],
 				$database 
@@ -701,7 +713,8 @@ class REST_CRUD_API {
 		}
 		if ($count != 1 || $field == false) {
 			
-			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], array (
+			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], 
+					array (
 					$tables [0],
 					$database 
 			) )) {
@@ -709,7 +722,6 @@ class REST_CRUD_API {
 				while ( $row = $this->fetch_row ( $result ) ) {
 				}
 				$type = $row [0];
-				
 			}
 			$this->close ( $result );
 			
@@ -889,15 +901,15 @@ class REST_CRUD_API {
 					$key [3],
 					$key [2],
 					$key [1],
-					$key [0]
+					$key [0] 
 			) );
-		}else{
-		$result = $this->query ( $db, 'DELETE FROM "!" WHERE "!" = ?', array (
-				$tables [0],
-				$key [1],
-				$key [0] 
-		) );
-		}	
+		} else {
+			$result = $this->query ( $db, 'DELETE FROM "!" WHERE "!" = ?', array (
+					$tables [0],
+					$key [1],
+					$key [0] 
+			) );
+		}
 		return $this->affected_rows ( $db, $result );
 	}
 	protected function findRelations($tables, $database, $db) {
@@ -1077,18 +1089,14 @@ class REST_CRUD_API {
 		$transform = $this->parseGetParameter ( $get, 'transform', '1' );
 		
 		$tables = $this->processTablesParameter ( $database, $tables, $action, $db );
-		if (strcmp($method,"DELETE")==0 && strcmp ( $tables [0], "Resultado" ) == 0) {
-			$key = array(
-					$_GET["id_Equipe"],
+		if (strcmp ( $method, "DELETE" ) == 0 && strcmp ( $tables [0], "Resultado" ) == 0) {
+			$key = array (
+					$_GET ["id_Equipe"],
 					"id_Equipe",
-					$_GET["id_Etapa"],
-					"id_Etapa"
-					
-					
+					$_GET ["id_Etapa"],
+					"id_Etapa" 
 			);
-			
-			
-		}else{
+		} else {
 			$key = $this->processKeyParameter ( $key, $tables, $database, $db );
 		}
 		
@@ -1139,18 +1147,19 @@ class REST_CRUD_API {
 		}
 		return $colInfo;
 	}
-	protected function getEntity($db, $sql, $params) {
+	protected function getEntity($db, $sql, $params, $usename) {
 		$response = "";
 		
 		if ($result = $this->query ( $db, $sql, $params )) {
-			$colInfo = $this->getColInfo ( $result );
+			$colInfo = $this->getColInfo ( $result, $usename );
 			if ($row = $this->fetch_assoc ( $result )) {
 				
 				$response .= $this->getObject ( $row, $colInfo );
 			}
+			
 			$this->close ( $result );
 		} else {
-			syslog ( LOG_INFO, "nao achou " );
+			syslog ( LOG_INFO, "nao achou " . $result );
 		}
 		
 		return $response;
@@ -1161,6 +1170,7 @@ class REST_CRUD_API {
 		
 		foreach ( $row as $key => $value ) {
 			$response .= "\"" . $key . "\":";
+			
 			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1) {
 				
 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
@@ -1472,7 +1482,7 @@ class REST_CRUD_API {
 		$this->settings = compact ( 'method', 'request', 'get', 'post', 'database', 'table_authorizer', 'column_authorizer', 'input_sanitizer', 'input_validator', 'db' );
 	}
 	public static function php_crud_api_transform(&$tables) {
-		$get_objects = function (&$tables, $table_name, $where_index = false, $match_value = false) use(&$get_objects) {
+		$get_objects = function (&$tables, $table_name, $where_index = false, $match_value = false) use (&$get_objects) {
 			$objects = array ();
 			foreach ( $tables [$table_name] ['records'] as $record ) {
 				if ($where_index === false || $record [$where_index] == $match_value) {
