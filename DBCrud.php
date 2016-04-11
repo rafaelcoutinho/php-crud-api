@@ -1171,7 +1171,7 @@ class REST_CRUD_API {
 		foreach ( $row as $key => $value ) {
 			$response .= "\"" . $key . "\":";
 			
-			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1) {
+			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1||$colInfo [$key] == 246) {
 				
 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
 					$response .= "null";
