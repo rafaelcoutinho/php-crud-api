@@ -4,39 +4,7 @@ use \google\appengine\api\mail\Message;
 include 'DBCrud.php';
 include 'connInfo.php';
 class SenhaApi extends MySQL_CRUD_API {
-	private function generateRandomString($length = 10) {
-		$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-		$charactersLength = strlen ( $characters );
-		$randomString = '';
-		for($i = 0; $i < $length; $i ++) {
-			$randomString .= $characters [rand ( 0, $charactersLength - 1 )];
-		}
-		return $randomString;
-	}
-	private function generateRandomEasyPwd() {
-		$words = array ();
-		$words [] = "bota";
-		$words [] = "lama";
-		$words [] = "bussola";
-		$words [] = "trilha";
-		$words [] = "neutro";
-		$words [] = "capim";
-		$words [] = "gado";
-		$words [] = "etapa";
-		$words [] = "lanterna";
-		$words [] = "planilha";
-		$words [] = "equipe";
-		
-		$characters = '0123456789';
-		$charactersLength = strlen ( $characters );
-		$palavrasCount = count ( $words );
-		$randomString = $words [rand ( 0, $palavrasCount - 1 )];
-		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
-		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
-		$randomString .= $words [rand ( 0, $palavrasCount - 1 )];
-		
-		return $randomString;
-	}
+	
 	protected function removePrefix($request) {
 		if (! $request)
 			return false;

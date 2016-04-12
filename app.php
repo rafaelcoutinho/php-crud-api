@@ -96,8 +96,7 @@ class AppApi extends MySQL_CRUD_API {
 					$resp = $this->getEntity ( $db, "select * from Competidor where e.id=?", array (
 							$id 
 					) );
-				} else {
-					syslog ( LOG_INFO, "Pegar Equipe " . $paths [0] . "/" . $paths [1] . "/" . $paths [2] );
+				} else {					
 					if (strcmp ( $paths [2], "Equipe" ) == 0) {
 						$equipe = $this->getEntity ( $db, "select eq.*,cat.nome as categoria from Equipe eq, Categoria cat where cat.id=eq.id_Categoria and eq.id=(select id_Equipe from Trekker_Equipe where id_Trekker=? and end=0)", array (
 								$id 
@@ -111,10 +110,10 @@ class AppApi extends MySQL_CRUD_API {
 			}
 		} else if (strcmp ( $paths [0], "CompetidorInscricao" ) == 0) {
 			$id = $paths [1];
+			$idEquipe = $paths [2];
 			$sql = "SELECT
 		`c`.`id` AS `id`,
-		`c`.`id` AS `id_Trekker`,
-		`c`.`email` AS `email`,
+		`c`.`id` AS `id_Trekker`,		
 		`c`.`nome` AS `nome`,
 		`c`.`fbId` AS `fbId`,
 		`c`.`id_Equipe` AS `id_Equipe`,
@@ -130,10 +129,10 @@ class AppApi extends MySQL_CRUD_API {
 		FROM
 		(
 				`northdb`.`Competidor` `c` LEFT JOIN
-				(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from `northdb`.`InscricaoFull` where id_Etapa=?) `ins`
-				ON (`ins`.`id_Trekker` = `c`.`id`) )";
+				(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from `northdb`.`InscricaoFull` where id_Etapa=? ) `ins`
+				ON (`ins`.`id_Trekker` = `c`.`id`) where id_Equipe=?)";
 			$resp = $this->listTable ( $db, $sql, array (
-					$id 
+					$id,$idEquipe 
 			) );
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";

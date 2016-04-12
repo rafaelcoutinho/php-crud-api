@@ -5,40 +5,89 @@ include 'connInfo.php';
 $adfasdf = $configArray;
 class InscricaoApi extends MySQL_CRUD_API {
 	protected function validateInscricao($db, $id_Equipe, $id_Etapa, $id_Lider, $integrantes_Ids, $participantes) {
-		$sqlParam = "";
-		$sqlTrekkerParams = array ();
-		$sqlTrekkerParams [] = $id_Equipe;
-		$sqlTrekkerParams [] = $id_Etapa;
 		
-		
-		for($i = 0; $i < $participantes; $i ++) {
-			if ($integrantes_Ids [$i]->id != null) {
-				syslog ( LOG_INFO, "participante " . $i . ":" . $integrantes_Ids [$i]->id );
-				$sqlParam .= '?,';
-				$sqlTrekkerParams [] = $integrantes_Ids [$i]->id;
+		// 1. O líder pode mudar de equipe, se estiver com a inscrição não paga
+		// 2. Remove os participantes a serem removidos SE não estiverem com pagamento feito.
+		// 3. Checar se os integrantes estão inscritos (pagos ou nao) em outras equipes. Se estiverem falha.
+		// 4. Apagar qqer inscricao desses desta prova, e recriar.
+		{ // 1
+			$params = array (
+					$id_Etapa,
+					$id_Lider 
+			);
+			$result = $this->getEntity ( $db, 'select id_Trekker, id_Equipe, pago from Inscricao where id_Etapa=? and id_Trekker=?', $params );
+			if ($results) {
+				if (json_decode ( $result )->pago == 1 && json_decode ( $result )->id_Equipe != $id_Equipe) {
+					$this->exitWith ( "Lider já está com pagamento confirmado em outra equipe.", 500, 662 );
+				}
 			}
 		}
+		{ // 2
+			$sqlParam = "";
+			$sqlTrekkerParams = array ();
+			$sqlTrekkerParams [] = $id_Equipe;
+			$sqlTrekkerParams [] = $id_Etapa;
+			
+			for($i = 0; $i < $participantes; $i ++) {
+				if ($integrantes_Ids [$i]->id != null) {
+					syslog ( LOG_INFO, "participante " . $i . ":" . $integrantes_Ids [$i]->id );
+					$sqlParam .= '?,';
+					$sqlTrekkerParams [] = $integrantes_Ids [$i]->id;
+				}
+			}
+			
+			$sqlParam .= '?';
+			$sqlTrekkerParams [] = $id_Lider;
+			// Remover participantes removidos
+			$result = $this->query ( $db, 'select id_Trekker from Inscricao where id_Equipe=? and id_Etapa=? and id_Trekker not in (' . $sqlParam . ')  and paga=(1)', $sqlTrekkerParams );
+			syslog ( LOG_INFO, "result->num_rows " . $result->num_rows );
+			if ($result) {
+				if ($row = $this->fetch_row ( $result )) {
+					syslog ( LOG_INFO, "Inscrição não pode ser alterada" );
+					$this->exitWith ( "Inscricao tenta remover participante com status pago", 500, 661 );
+				}
+			}
+			$this->close ( $result );
+		}
 		
-		$sqlParam .= '?';
-		$sqlTrekkerParams [] = $id_Lider;
-		
-		$result = $this->query ( $db, 'select id_Trekker from Inscricao where id_Equipe=? and id_Etapa=? and id_Trekker not in (' . $sqlParam . ')  and paga=(1)', $sqlTrekkerParams );
-		syslog ( LOG_INFO, "result->num_rows " . $result->num_rows );
-		if ($result) {
-			if ($row = $this->fetch_row ( $result )) {
-				syslog ( LOG_INFO, "Inscrição não pode ser alterada" );
-				$this->exitWith ( "Inscricao tenta remover participante com status pago", 500, 661 );
+		{ // 3
+			
+			for($i = 0; $i < $participantes; $i ++) {
+				if ($integrantes_Ids [$i]->id != null) {
+					$result = $this->getEntity ( $db, 'select id_Trekker, nome, nome_Equipe from InscricaoFull where id_Equipe<>? and id_Etapa=? and id_Trekker=?', array (
+							$id_Equipe,
+							$id_Etapa,
+							$integrantes_Ids [$i]->id 
+					) );
+					
+					if ($result) {
+						$row= json_decode($result);	
+						
+						syslog ( LOG_INFO, "Inscrição não pode ser alterada participante em outra equipe" );
+						$this->exitWith ( "Participante '" . $row->nome . "' já inscrito em outra equipe '" . $row->nome_Equipe . "'", 500, 663 );
+					}
+				}
 			}
 		}
-		$this->close ( $result );
-		
-		$paramsDelete = array (
-				mysqli_real_escape_string ( $db, $id_Equipe ),
-				mysqli_real_escape_string ( $db, $id_Etapa ) 
-		);
-		$result = $this->query ( $db, 'delete from Inscricao where id_Equipe=? and id_Etapa=? and paga<>(1)', $paramsDelete );
-		$affected = $this->affected_rows ( $db, $result );
-		syslog ( LOG_INFO, "apagou  " . $affected );
+		{ // 4
+			
+			$sqlParam = "";
+			$sqlTrekkerParams = array ();
+			for($i = 0; $i < $participantes; $i ++) {
+				if ($integrantes_Ids [$i]->id != null) {
+					
+					$sqlParam .= '?,';
+					$sqlTrekkerParams [] = $integrantes_Ids [$i]->id;
+				}
+			}
+			
+			$sqlParam .= '?';
+			$sqlTrekkerParams [] = $id_Lider;
+			$sqlTrekkerParams [] = $id_Etapa;
+			$result = $this->query ( $db, 'delete from Inscricao where id_Trekker in (' . $sqlParam . ')  and id_Etapa=? and paga<>(1)', $sqlTrekkerParams );
+			$affected = $this->affected_rows ( $db, $result );
+			syslog ( LOG_INFO, "apagou  " . $affected );
+		}
 	}
 	protected function createInscricao($db, $id_Trekker, $id_Equipe, $id_Etapa, $milliseconds) {
 		$params = array (

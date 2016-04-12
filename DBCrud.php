@@ -1,4 +1,5 @@
 <?php
+define ( 'INVALID_PWD', '804' );
 define ( 'MISSING_PWD', '801' );
 define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
@@ -1160,6 +1161,7 @@ class REST_CRUD_API {
 			$this->close ( $result );
 		} else {
 			syslog ( LOG_INFO, "nao achou " . $result );
+			return NULL;
 		}
 		
 		return $response;
@@ -1533,6 +1535,40 @@ class REST_CRUD_API {
 		$response = rtrim ( $response, "," );
 		
 		return "[" . $response . "]";
+	}
+	
+	protected function generateRandomString($length = 10) {
+		$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+		$charactersLength = strlen ( $characters );
+		$randomString = '';
+		for($i = 0; $i < $length; $i ++) {
+			$randomString .= $characters [rand ( 0, $charactersLength - 1 )];
+		}
+		return $randomString;
+	}
+	protected function generateRandomEasyPwd() {
+		$words = array ();
+		$words [] = "bota";
+		$words [] = "lama";
+		$words [] = "bussola";
+		$words [] = "trilha";
+		$words [] = "neutro";
+		$words [] = "capim";
+		$words [] = "gado";
+		$words [] = "etapa";
+		$words [] = "lanterna";
+		$words [] = "planilha";
+		$words [] = "equipe";
+	
+		$characters = '0123456789';
+		$charactersLength = strlen ( $characters );
+		$palavrasCount = count ( $words );
+		$randomString = $words [rand ( 0, $palavrasCount - 1 )];
+		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
+		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
+		$randomString .= $words [rand ( 0, $palavrasCount - 1 )];
+	
+		return $randomString;
 	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {

@@ -3,6 +3,24 @@ use \google\appengine\api\mail\Message;
 include 'DBCrud.php';
 include 'connInfo.php';
 class UserApi extends MySQL_CRUD_API {
+	protected function checkSenhaTemporaria($db, $email, $password) {
+		$sqlByEmail = "select * FROM SenhaTemporaria where email=?";
+		$resp = $this->getEntity ( $db, $sqlByEmail, array (
+				$email 
+		) );
+		
+		$senhaTemporaria = json_decode ( $resp )->codigo;
+		syslog ( LOG_INFO, "comparando $senhaTemporaria com $password = " . (strcmp ( $password, $senhaTemporaria )) );
+		if (strcmp ( $password, $senhaTemporaria ) != 0) {
+			$this->exitWith ( "Temporaria errada", 403, INVALID_PWD );
+		}
+		
+		$sql = "delete from SenhaTemporaria where email=?";
+		$this->query ( $db, $sql, array (
+				$email 
+		) );
+		return $senhaTemporaria;
+	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -11,7 +29,69 @@ class UserApi extends MySQL_CRUD_API {
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
 			return;
 		}
-		
+		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "GET" ) == 0) {
+			$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
+			$existingUser = NULL;
+			$email = $_GET ["email"];
+			if (strlen ( $email ) == 0) {
+				$this->exitWith ( "email invalido", 500, 101 );
+			}
+			$sqlByEmail = "select id,state,nome FROM Trekker where email=?";
+			$resp = $this->getEntity ( $db, $sqlByEmail, array (
+					$_GET ["email"] 
+			) );
+			syslog ( LOG_INFO, " " . json_decode ( $resp )->state . "  e " . strcmp ( "ACTIVE", json_decode ( $resp )->state ) );
+			if (strlen ( $resp ) == 0 || strcmp ( "ACTIVE", json_decode ( $resp )->state ) != 0) {
+				
+				$sql = "delete from SenhaTemporaria where email=?";
+				$this->query ( $db, $sql, array (
+						$email 
+				) );
+				
+				$sql = "insert into SenhaTemporaria(email,codigo,validade) values (?,?,?)";
+				$milliseconds = (round ( microtime ( true ) * 1000 )) + (60 * 60 * 1000);
+				$codigo = $this->generateRandomEasyPwd ();
+				$params = array ();
+				$params [] = $email;
+				$params [] = $codigo;
+				$params [] = $milliseconds;
+				$result = $this->query ( $db, $sql, $params );
+				
+				try {
+					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
+					syslog ( LOG_INFO, $msg );
+					$message = new Message ();
+					
+					$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
+					// $message->addTo ( $data->email );
+					if (strcmp ( "logistica@northbrasil.com.br", $data->email ) == 0) {
+						$message->addTo ( $data->email );
+					} else if (strcmp ( "felipe@northbrasil.com.br", $data->email ) == 0) {
+						$message->addTo ( $data->email );
+					} else if (strcmp ( "silvia@northbrasil.com.br", $data->email ) == 0) {
+						$message->addTo ( $data->email );
+					} else {
+						$message->addTo ( "rafael.coutinho+test@gmail.com" );
+					}
+					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
+					$message->setTextBody ( $msg );
+					
+					$message->setHtmlBody ( "<html><body>Um pedido para acessar a NorthBrasil foi feito com seu e-mail.<br><br>A senha temporária é '$codigo'<br><br>Caso não tenha feito essa solicitação por favor ignore esta mensagem.</body></html>" );
+					
+					$message->send ();
+				} catch ( InvalidArgumentException $e ) {
+					syslog ( LOG_INFO, "ERRO " . $e );
+				}
+				if (strcmp ( "ACTIVE", json_decode ( $resp )->state ) == 0) {
+					$this->exitWith ( "Existing User", 404, 912 );
+				} else {
+					$this->exitWith ( "No user found " . strcmp ( "ACTIVE", json_decode ( $resp )->state ), 404, 911 );
+				}
+			}
+			echo $resp;
+			
+			return;
+		}
 		$request_body = file_get_contents ( 'php://input' );
 		$data = json_decode ( $request_body );
 		
@@ -23,18 +103,22 @@ class UserApi extends MySQL_CRUD_API {
 		$sqlByEmail = "select * FROM Trekker where email='" . mysqli_real_escape_string ( $db, $data->email ) . "'";
 		
 		$result = mysqli_query ( $db, $sqlByEmail );
-		
+		$email = $data->email;
 		if ($result->num_rows == 0) {
 			syslog ( LOG_INFO, "Usuário novo " . $data->email );
 			// criar novo.
 			if ($data->fbId == null && ! $data->password) {
 				$this->exitWith ( "Missing password", 400, MISSING_PWD );
 			}
+			
+			$senhaTemporaria = $this->checkSenhaTemporaria ( $db, $email, $data->password );
+			
 			if ($data->password) {
 				$pwd = md5 ( $data->password );
 			} else {
 				$pwd = NULL;
 			}
+			
 			$params = array (
 					mysqli_real_escape_string ( $db, $data->email ),
 					mysqli_real_escape_string ( $db, $pwd ),
@@ -65,9 +149,12 @@ class UserApi extends MySQL_CRUD_API {
 				} else if (! $data->password) {
 					$this->exitWith ( "Senha é obrigatória", 403, CONFIRMING_USER_NO_PWD );
 				}
-			} else if ($existingUser ["fbId"] != null && strcmp ( $data->fbId, $existingUser ["fbId"] )) {
+			} else if ($existingUser ["fbId"] != null && strcmp ( $data->fbId, $existingUser ["fbId"] ) < 0) {
 				$this->exitWith ( "Usuário FB divergente", 403, DIVERGENT_FB );
 			}
+			
+			$senhaTemporaria = $this->checkSenhaTemporaria ( $db, $email, $data->password );
+			
 			$params = array ();
 			$sql = 'UPDATE "!" SET ';
 			$params [] = "Trekker";
