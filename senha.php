@@ -57,7 +57,11 @@ class SenhaApi extends MySQL_CRUD_API {
 		
 		$resp = null;
 		if (strcmp ( $paths [0], "LembrarSenha" ) == 0) {
+			if (strcmp ( $_SERVER ['REQUEST_METHOD'], "POST" ) != 0) {
+				$this->exitWith ( "Para requisitar lembrar senha deve-se utilizar um formulário	", 404, 0 );
+			}
 			header ( 'Content-Type: application/json;charset=utf-8', true );
+			syslog ( LOG_INFO, "$data->email solicitou para lembrar senha. 1o passo" );
 			$trekker = $this->getEntity ( $db, "select * from Trekker where email=?", array (
 					$data->email 
 			) );
@@ -75,7 +79,7 @@ class SenhaApi extends MySQL_CRUD_API {
 				$message->setSubject ( "Lembrar Senha NorthApp" );
 				$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
 				$message->setHtmlBody ( "<html><body>Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.<br><a href=\"http://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\">Clique aqui</a> se você deseja receber uma nova senha.<br>Caso contrário ignore este e-mail.</body></html>" );
-				syslog ( LOG_INFO, "Iniciado $data->email" );
+				
 				$message->send ();
 			} catch ( InvalidArgumentException $e ) {
 				syslog ( LOG_INFO, "ERRO " . $e );
@@ -83,9 +87,9 @@ class SenhaApi extends MySQL_CRUD_API {
 		} else if (strcmp ( $paths [0], "Confirma" ) == 0) {
 			header ( 'Content-Type: text/html;charset=utf-8', true );
 			$codigo = $_GET ["c"];
-			$email = strtolower ( $_GET ["email"] );
 			
-			syslog ( LOG_INFO, "Pedido '$codigo' '$email'" );
+			$email = strtolower ( $_GET ["email"] );
+			syslog ( LOG_INFO, "Confirmando Pedido '$codigo' '$email'" );
 			$params = array ();
 			$params [] = $email;
 			$params [] = $codigo;
@@ -102,7 +106,7 @@ class SenhaApi extends MySQL_CRUD_API {
 			
 			try {
 				$message = new Message ();
-				syslog ( LOG_INFO, "Iniciado $data->email" );
+				
 				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $email );
 				$message->setSubject ( "Senha Provisória NorthApp" );
@@ -110,7 +114,7 @@ class SenhaApi extends MySQL_CRUD_API {
 				$message->setTextBody ( "Uma nova senha foi gerada para você. Você pode acessar o aplicativo agora com a senha '" . $senhaProvisoria . "'." );
 				$message->setHtmlBody ( "<html><body>Uma nova senha foi gerada para você. Você pode acessar o aplicativo agora com a senha:<br><h3>" . $senhaProvisoria . "</h3>" );
 				$message->send ();
-				$this->removeResets ( $db, $data->email );
+				$this->removeResets ( $db, $email );
 				$resp = "Uma nova senha foi enviada para seu e-mail.";
 			} catch ( InvalidArgumentException $e ) {
 				syslog ( LOG_INFO, "ERRO " . $e );
