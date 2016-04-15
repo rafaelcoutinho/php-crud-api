@@ -97,7 +97,7 @@ class Grider extends MySQL_CRUD_API {
 		
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		
-		$sql = "select * FROM PreGrid where id_Etapa=? order by categoria";
+		$sql = "select * FROM PreGrid where id_Etapa=? order by id_Categoria desc,data";
 		$params [] = ($_GET ["e"]) - 145;
 		$counter = 0;
 		$nomeConfig = "";
@@ -106,14 +106,14 @@ class Grider extends MySQL_CRUD_API {
 			$adjust = 0;
 			while ( $row = $this->fetch_assoc ( $result ) ) {
 				
-				if (strcmp ( $nomeConfig, $row ["categoria"] ) != 0) {
-					$nomeConfig = $row ["categoria"];
+				if (strcmp ( $nomeConfig, $row ["nome_Categoria"] ) != 0) {
+					$nomeConfig = $row ["nome_Categoria"];
 					echo "<tr ><td colspan=\"5\" style=\"padding-left:0px\"><span class=\"subTituloTabela\">$nomeConfig</span></td></tr>";
 				}
 				
-				echo "<td >" . $row ["equipe"] . "</td>";
+				echo "<td >" . $row ["nome"] . "</td>";
 				echo "<td>". $row ["descricao"] ."</td>";
-				echo "<td >" . $row ["categoria"] . "</td>";
+				echo "<td >" . $row ["nome_Categoria"] . "</td>";
 				echo "</tr>";
 				$counter ++;
 			}

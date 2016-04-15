@@ -1159,8 +1159,7 @@ class REST_CRUD_API {
 			}
 			
 			$this->close ( $result );
-		} else {
-			syslog ( LOG_INFO, "nao achou " . $result );
+		} else {			
 			return NULL;
 		}
 		

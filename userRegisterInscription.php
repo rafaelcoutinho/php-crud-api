@@ -32,46 +32,73 @@ class UserApi extends MySQL_CRUD_API {
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "GET" ) == 0) {
 			$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 			$existingUser = NULL;
-			$email = $_GET ["email"];
+			$email = strtolower ( $_GET ["email"] );
+			
 			if (strlen ( $email ) == 0) {
 				$this->exitWith ( "email invalido", 500, 101 );
 			}
-			$sqlByEmail = "select id,state,nome FROM Trekker where email=?";
+			$sqlByEmail = "select id,state,nome,fbId,password FROM Trekker where email=?";
 			$resp = $this->getEntity ( $db, $sqlByEmail, array (
 					$_GET ["email"] 
 			) );
-			syslog ( LOG_INFO, " " . json_decode ( $resp )->state . "  e " . strcmp ( "ACTIVE", json_decode ( $resp )->state ) );
-			if (strlen ( $resp ) == 0 || strcmp ( "ACTIVE", json_decode ( $resp )->state ) != 0) {
-				
-				$sql = "delete from SenhaTemporaria where email=?";
-				$this->query ( $db, $sql, array (
+			syslog ( LOG_INFO, " resp: " . $resp );
+			$newUser = strlen ( $resp ) == 0;
+			$needsAPwd = false;
+			if ($newUser == false) {
+				if (strcmp ( "ACTIVE", json_decode ( $resp )->state ) == 0) {
+					// checar se já tem senha e se é do facebook
+					if (strlen ( json_decode ( $resp )->password ) == 0) {
+						$needsAPwd = true;
+					}
+				} else {
+					$needsAPwd = true;
+				}
+			}
+			$hasFacebookId = strlen ( json_decode ( $resp )->fbId ) > 0;
+			$milliseconds = (round ( microtime ( true ) * 1000 )) + (60 * 60 * 1000);
+			if ($newUser || $needsAPwd) {
+				$senhaTemp = $this->getEntity ( $db, "select * from SenhaTemporaria where email=?", array (
 						$email 
 				) );
-				
-				$sql = "insert into SenhaTemporaria(email,codigo,validade) values (?,?,?)";
-				$milliseconds = (round ( microtime ( true ) * 1000 )) + (60 * 60 * 1000);
-				$codigo = $this->generateRandomEasyPwd ();
-				$params = array ();
-				$params [] = $email;
-				$params [] = $codigo;
-				$params [] = $milliseconds;
-				$result = $this->query ( $db, $sql, $params );
+				if ($senhaTemp == NULL || strlen ( $senhaTemp ) == 0) {
+					$sql = "delete from SenhaTemporaria where email=?";
+					$this->query ( $db, $sql, array (
+							$email 
+					) );
+					
+					$sql = "insert into SenhaTemporaria(email,codigo,validade) values (?,?,?)";
+					
+					$codigo = $this->generateRandomEasyPwd ();
+					$params = array ();
+					$params [] = $email;
+					$params [] = $codigo;
+					$params [] = $milliseconds;
+					$result = $this->query ( $db, $sql, $params );
+				} else {
+					$codigo = json_decode ( $senhaTemp )->codigo;
+				}
 				
 				try {
 					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
-					syslog ( LOG_INFO, $msg );
+					syslog ( LOG_INFO, $email . ": " . $msg );
 					$message = new Message ();
 					
 					$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
 					// $message->addTo ( $data->email );
-					if (strcmp ( "logistica@northbrasil.com.br", $data->email ) == 0) {
-						$message->addTo ( $data->email );
-					} else if (strcmp ( "felipe@northbrasil.com.br", $data->email ) == 0) {
-						$message->addTo ( $data->email );
-					} else if (strcmp ( "silvia@northbrasil.com.br", $data->email ) == 0) {
-						$message->addTo ( $data->email );
+					
+					if (strcmp ( "logistica@northbrasil.com.br", $email ) == 0) {
+						$message->addTo ( $email );
+					} else if (strcmp ( "felipe@northbrasil.com.br", $email ) == 0) {
+						$message->addTo ( $email );
+					} else if (strcmp ( "silvia@northbrasil.com.br", $email ) == 0) {
+						$message->addTo ( $email );
+					} else if (strcmp ( "porouda@hotmail.com", $email ) == 0) {
+						$message->addTo ( $email );
+						syslog ( LOG_INFO, "email enviado para porouda" );
 					} else {
+						
 						$message->addTo ( "rafael.coutinho+test@gmail.com" );
+						$message->addTo ( "logistica@northbrasil.com.br" );
 					}
 					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
 					$message->setTextBody ( $msg );
@@ -82,10 +109,15 @@ class UserApi extends MySQL_CRUD_API {
 				} catch ( InvalidArgumentException $e ) {
 					syslog ( LOG_INFO, "ERRO " . $e );
 				}
-				if (strcmp ( "ACTIVE", json_decode ( $resp )->state ) == 0) {
-					$this->exitWith ( "Existing User", 404, 912 );
+				
+				if ($newUser == true) {
+					$this->exitWith ( "No user found ", 404, 911 );
 				} else {
-					$this->exitWith ( "No user found " . strcmp ( "ACTIVE", json_decode ( $resp )->state ), 404, 911 );
+					if ($hasFacebookId) {
+						$this->exitWith ( "Facebook user missing password user", 404, 914 );
+					} else {
+						$this->exitWith ( "Missing password user", 404, 912 );
+					}
 				}
 			}
 			echo $resp;
@@ -98,6 +130,7 @@ class UserApi extends MySQL_CRUD_API {
 		if (! $data || ! $data->email) {
 			$this->exitWith ( "Missing parameters", 400 );
 		}
+		$data->email = strtolower ( $data->email );
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		$existingUser = NULL;
 		$sqlByEmail = "select * FROM Trekker where email='" . mysqli_real_escape_string ( $db, $data->email ) . "'";
@@ -144,7 +177,7 @@ class UserApi extends MySQL_CRUD_API {
 			$this->close ( $result );
 			
 			if (! $data->fbId || $data->fbId == NULL) {
-				if (strcmp ( $existingUser ["state"], "ACTIVE" ) == 0) {
+				if (strcmp ( $existingUser ["state"], "ACTIVE" ) == 0 && strlen ( $existingUser ["password"] ) > 0) {
 					$this->exitWith ( "Usuario já existe", 403, DUPE_USER );
 				} else if (! $data->password) {
 					$this->exitWith ( "Senha é obrigatória", 403, CONFIRMING_USER_NO_PWD );
@@ -171,12 +204,12 @@ class UserApi extends MySQL_CRUD_API {
 				$params [] = $pwd;
 			}
 			
-			if ($data->telefone != null) {
+			if ($data->telefone != null && strlen ( $data->telefone )) {
 				$sql .= '"!"=?,';
 				$params [] = 'telefone';
 				$params [] = $data->telefone;
 			}
-			if ($data->nome != null) {
+			if ($data->nome != null && strlen ( $data->nome ) > 0) {
 				$sql .= '"!"=?,';
 				$params [] = 'nome';
 				$params [] = $data->nome;

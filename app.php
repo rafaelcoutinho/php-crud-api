@@ -79,7 +79,7 @@ class AppApi extends MySQL_CRUD_API {
 						$idEquipe = $paths [3];
 						$resp = $this->listTable ( $db, "SELECT * FROM northdb.PC pcs where pcs.id_Etapa=? and pcs.id_Equipe=?", array (
 								$idEtapa,
-								$idEquipe
+								$idEquipe 
 						) );
 					}
 				}
@@ -96,7 +96,7 @@ class AppApi extends MySQL_CRUD_API {
 					$resp = $this->getEntity ( $db, "select * from Competidor where e.id=?", array (
 							$id 
 					) );
-				} else {					
+				} else {
 					if (strcmp ( $paths [2], "Equipe" ) == 0) {
 						$equipe = $this->getEntity ( $db, "select eq.*,cat.nome as categoria from Equipe eq, Categoria cat where cat.id=eq.id_Categoria and eq.id=(select id_Equipe from Trekker_Equipe where id_Trekker=? and end=0)", array (
 								$id 
@@ -108,32 +108,53 @@ class AppApi extends MySQL_CRUD_API {
 					}
 				}
 			}
-		} else if (strcmp ( $paths [0], "CompetidorInscricao" ) == 0) {
+		} else if (strcmp ( $paths [0], "InscricaoCompetidores" ) == 0) {
 			$id = $paths [1];
 			$idEquipe = $paths [2];
 			$sql = "SELECT
-		`c`.`id` AS `id`,
-		`c`.`id` AS `id_Trekker`,		
-		`c`.`nome` AS `nome`,
-		`c`.`fbId` AS `fbId`,
-		`c`.`id_Equipe` AS `id_Equipe`,
-		`c`.`equipe` AS `equipe`,
-		`c`.`categoria` AS `categoria`,
-		`ins`.`nome_Equipe` AS `ins_EquipeNome`,
-		`ins`.`id_Equipe` AS `ins_EquipeId`,
-		`ins`.`categoria` AS `ins_CategoriaNome`,
-		`ins`.`id_Categoria` AS `ins_CategoriaId`,
-		`ins`.`id_Etapa` AS `id_Etapa`,
-		`ins`.`paga` AS `paga`,
-		`ins`.`data` AS `ins_Data`
-		FROM
-		(
-				`northdb`.`Competidor` `c` LEFT JOIN
-				(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from `northdb`.`InscricaoFull` where id_Etapa=? ) `ins`
-				ON (`ins`.`id_Trekker` = `c`.`id`) where id_Equipe=?)";
+					c.id AS id,
+					c.id AS id_Trekker,		
+					c.nome AS nome,
+					c.fbId AS fbId,
+					c.id_Equipe AS id_Equipe,
+					c.equipe AS equipe,
+					c.categoria AS categoria,
+					ins.nome_Equipe AS ins_EquipeNome,
+					ins.id_Equipe AS ins_EquipeId,
+					ins.categoria AS ins_CategoriaNome,
+					ins.id_Categoria AS ins_CategoriaId,
+					ins.id_Etapa AS id_Etapa,
+					ins.paga AS paga,
+					ins.data AS ins_Data
+					FROM
+					(
+				northdb.Competidor c LEFT JOIN
+				(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from northdb.InscricaoFull where id_Etapa=? ) ins
+				ON (ins.id_Trekker = c.id) where id_Equipe=?)";
 			$resp = $this->listTable ( $db, $sql, array (
-					$id,$idEquipe 
+					$id,
+					$idEquipe 
 			) );
+		} else if (strcmp ( $paths [0], "InscricaoCompetidor" ) == 0) {
+			$idEtapa = $paths [1];
+			$email = strtolower ( $paths [2] );
+			$sql = "SELECT 
+c.id AS id,c.id AS id_Trekker, c.nome AS nome,c.fbId AS fbId,
+c.id_Equipe AS id_Equipe,
+c.equipe AS equipe,
+c.categoria AS categoria,ins.nome_Equipe AS ins_EquipeNome,ins.id_Equipe AS ins_EquipeId, ins.categoria AS ins_CategoriaNome, ins.id_Categoria AS ins_CategoriaId, 
+ins.id_Etapa AS id_Etapa, ins.paga AS paga, ins.data AS ins_Data 
+FROM 
+( northdb.Competidor c LEFT JOIN
+ (select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from northdb.InscricaoFull where id_Etapa=? ) ins ON ins.id_Trekker = c.id_Trekker) where c.email=?";
+			$resp = $this->getEntity ( $db, $sql, array (
+					$idEtapa,
+					$email 
+			) , true);
+		} else if (strcmp ( $paths [0], "Ranking" ) == 0) {
+			
+			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe";
+			$resp = $this->listTable ( $db, $sql, array () );
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";
 			$resp = $this->getEntity ( $db, $sql, array () );

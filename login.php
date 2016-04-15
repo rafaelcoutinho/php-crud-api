@@ -19,6 +19,7 @@ class LoginApi extends MySQL_CRUD_API {
 		if (! $data || ! $data->password || ! $data->email) {
 			$this->exitWith ( "Missing parameters", 400 );
 		}
+		$data->email=strtolower($data->email);
 		$pwd = md5 ( $data->password );
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		

@@ -4,7 +4,6 @@ use \google\appengine\api\mail\Message;
 include 'DBCrud.php';
 include 'connInfo.php';
 class SenhaApi extends MySQL_CRUD_API {
-	
 	protected function removePrefix($request) {
 		if (! $request)
 			return false;
@@ -53,7 +52,7 @@ class SenhaApi extends MySQL_CRUD_API {
 		
 		$request_body = file_get_contents ( 'php://input' );
 		$data = json_decode ( $request_body );
-		
+		$data->email = strtolower ( $data->email );
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		
 		$resp = null;
@@ -70,13 +69,13 @@ class SenhaApi extends MySQL_CRUD_API {
 			// Notice that $image_data is the raw file data of the attachment.
 			try {
 				$message = new Message ();
-				syslog ( LOG_INFO, "Iniciado $data->email" );
+				
 				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $data->email );
 				$message->setSubject ( "Lembrar Senha NorthApp" );
 				$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
 				$message->setHtmlBody ( "<html><body>Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.<br><a href=\"http://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\">Clique aqui</a> se você deseja receber uma nova senha.<br>Caso contrário ignore este e-mail.</body></html>" );
-				
+				syslog ( LOG_INFO, "Iniciado $data->email" );
 				$message->send ();
 			} catch ( InvalidArgumentException $e ) {
 				syslog ( LOG_INFO, "ERRO " . $e );
@@ -84,7 +83,8 @@ class SenhaApi extends MySQL_CRUD_API {
 		} else if (strcmp ( $paths [0], "Confirma" ) == 0) {
 			header ( 'Content-Type: text/html;charset=utf-8', true );
 			$codigo = $_GET ["c"];
-			$email = $_GET ["email"];
+			$email = strtolower ( $_GET ["email"] );
+			
 			syslog ( LOG_INFO, "Pedido '$codigo' '$email'" );
 			$params = array ();
 			$params [] = $email;
