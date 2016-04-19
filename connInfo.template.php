@@ -1,13 +1,15 @@
 <?php
 // uncomment the lines below when running in stand-alone mode:
-$configArray  = array(
-		'hostname'=>'null',
-		'username'=>'root',
-		'password'=>'root',
-		'database'=>'dbdb',
-		'charset'=>'utf8'
+$configArray = array (
+		'hostname' => 'null',
+		'username' => 'root',
+		'password' => 'root',
+		'database' => 'dbdb',
+		'charset' => 'utf8' 
 );
 
+$APN_Password = "???";
+$GCM_AUTH_KEY = "??";
 // $api = new MySQL_CRUD_API(array(
 // 	'hostname'=>null,
 //	'username'=>'root',

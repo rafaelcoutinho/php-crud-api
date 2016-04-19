@@ -82,24 +82,11 @@ class UserApi extends MySQL_CRUD_API {
 					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
 					syslog ( LOG_INFO, $email . ": " . $msg );
 					$message = new Message ();
-					
+					$message->setReplyTo ( "northapp@northbrasil.com.br" );
 					$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
-					// $message->addTo ( $data->email );
+					$message->addTo ( $email );
 					
-					if (strcmp ( "logistica@northbrasil.com.br", $email ) == 0) {
-						$message->addTo ( $email );
-					} else if (strcmp ( "felipe@northbrasil.com.br", $email ) == 0) {
-						$message->addTo ( $email );
-					} else if (strcmp ( "silvia@northbrasil.com.br", $email ) == 0) {
-						$message->addTo ( $email );
-					} else if (strcmp ( "porouda@hotmail.com", $email ) == 0) {
-						$message->addTo ( $email );
-						syslog ( LOG_INFO, "email enviado para porouda" );
-					} else {
-						
-						$message->addTo ( "rafael.coutinho+test@gmail.com" );
-						$message->addTo ( "logistica@northbrasil.com.br" );
-					}
+					
 					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
 					$message->setTextBody ( $msg );
 					

@@ -27,7 +27,7 @@ class AppApi extends MySQL_CRUD_API {
 			return;
 		}
 		header ( 'Content-Type: application/json;charset=utf-8', true );
-		syslog ( LOG_INFO, "app.php " );
+		
 		$request = parse_url ( $_SERVER ['REQUEST_URI'], PHP_URL_PATH );
 		$pathInfo = $this->removePrefix ( $request );
 		
@@ -150,7 +150,7 @@ FROM
 			$resp = $this->getEntity ( $db, $sql, array (
 					$idEtapa,
 					$email 
-			) , true);
+			), true );
 		} else if (strcmp ( $paths [0], "Ranking" ) == 0) {
 			
 			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe";
@@ -158,6 +158,42 @@ FROM
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";
 			$resp = $this->getEntity ( $db, $sql, array () );
+		} else if (strcmp ( $paths [0], "Msg" ) == 0) {
+			$userId = $paths [1];
+			$request_body = file_get_contents ( 'php://input' );
+			$data = json_decode ( $request_body );
+			if ($data->d == NULL) {
+				$this->exitWith ( "Sem token ", 500, 1 );
+			}
+			$resp = array ();
+			if (strcmp ( $data->action, "registergcm" ) == 0) {
+				$now = (round ( microtime ( true ) * 1000 ));
+				$sql = "delete MsgDevice where token=?";
+				$this->query ( $db, $sql, array (
+						$data->d 
+				) );
+				$sql = "insert into MsgDevice(idUser,token,platform,data) values (?,?,?,?)";
+				$result = $this->query ( $db, $sql, array (
+						$userId,
+						$data->d,
+						$data->p,
+						$now 
+				) );
+				$id = - 1;
+				if (! $result) {
+					$error = $this->getError ( $db );
+					
+					$this->exitWith500 ( 'Failed to insert object: ' . $error );
+				} else {
+					$id = $this->insert_id ( $db, $result );
+					$resp ["id"] = $id;
+				}
+				
+				$resp ["ok"] = true;
+				$resp = json_encode ( $resp );
+			} else {
+				$this->exitWith500 ( 'not implemented: ' . $data->action );
+			}
 		} else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );
 		}

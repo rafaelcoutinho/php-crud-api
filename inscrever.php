@@ -342,12 +342,9 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
 			$message = new Message ();
-			
+			$message->setReplyTo ( "northapp@northbrasil.com.br" );
 			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
-			// $message->addTo ( $liderInfo->email );
-			
-			$message->addTo ( "rafael.coutinho+test@gmail.com" );
-			$message->addTo ( "logistica@northbrasil.com.br" );
+			$message->addTo ( $liderInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
 			$message->setTextBody ( $msgText );
@@ -358,7 +355,6 @@ class InscricaoApi extends MySQL_CRUD_API {
 		} catch ( Exception $e ) {
 			syslog ( LOG_INFO, "ERRO " . $e );
 		}
-		
 		
 		return $liderInfo;
 	}
@@ -370,7 +366,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 			syslog ( LOG_INFO, "erro carregando integrante" );
 		}
 		$integranteInfo = json_decode ( $integranteInfo );
-		if ($integranteInfo->email == null || strlen ( $integranteInfo->email )==0) {
+		if ($integranteInfo->email == null || strlen ( $integranteInfo->email ) == 0) {
 			syslog ( LOG_INFO, "Integrante não possui email" );
 			return;
 		}
@@ -380,12 +376,9 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
 			$message = new Message ();
-			
+			$message->setReplyTo ( "northapp@northbrasil.com.br" );
 			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
-			// $message->addTo ( $liderInfo->email );
-			
-			$message->addTo ( "rafael.coutinho+test@gmail.com" );
-			$message->addTo ( "logistica@northbrasil.com.br" );
+			$message->addTo ( $integranteInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
 			$message->setTextBody ( $msgText );
@@ -396,8 +389,6 @@ class InscricaoApi extends MySQL_CRUD_API {
 		} catch ( Exception $e ) {
 			syslog ( LOG_INFO, "ERRO " . $e );
 		}
-		
-		
 	}
 	protected function getDefText($etapaInfo) {
 		$txt = "Agora sua equipe já consta no PRÉ-GRID da prova. Para confirmar a inscrição e ter a equipe listado no GRID FINAL, com horário de largada oficial, siga os procedimentos abaixo:\n\n";

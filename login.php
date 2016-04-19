@@ -36,7 +36,7 @@ class LoginApi extends MySQL_CRUD_API {
 				$this->endOutput ( null );
 			}
 		} else {
-			$this->exitWith404 ( "User not found" );
+			$this->exitWith ( "User/pwd nao encontrados", 404, 101 );
 		}
 	}
 }

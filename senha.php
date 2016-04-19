@@ -73,7 +73,7 @@ class SenhaApi extends MySQL_CRUD_API {
 			// Notice that $image_data is the raw file data of the attachment.
 			try {
 				$message = new Message ();
-				
+				$message->setReplyTo ( "northapp@northbrasil.com.br" );
 				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $data->email );
 				$message->setSubject ( "Lembrar Senha NorthApp" );
@@ -106,7 +106,7 @@ class SenhaApi extends MySQL_CRUD_API {
 			
 			try {
 				$message = new Message ();
-				
+				$message->setReplyTo ( "northapp@northbrasil.com.br" );
 				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $email );
 				$message->setSubject ( "Senha Provisória NorthApp" );
