@@ -199,6 +199,15 @@ class NotificatorApi extends MySQL_CRUD_API {
 				$result = $this->query ( $db, "select * from MsgDevice msg, Competidor t where msg.idUser=t.id_Trekker and t.categoria=?", array (
 						"Turismo" 
 				) );
+			}if (strcmp ( $data->type, "competidor" ) == 0) {
+				$result = $this->query ( $db, "select * from MsgDevice msg where msg.idUser=?", array (
+						$data->id_Trekker
+				) );
+				
+			}if (strcmp ( $data->type, "equipe" ) == 0) {
+				$result = $this->query ( $db, "select * from MsgDevice msg, Competidor t where msg.idUser=t.id_Trekker and t.id_Equipe=?", array (
+						$data->id_Equipe
+				) );
 			}
 		} else {
 			$this->exitWith ( "Sem destinatarios", 404, 2 );
