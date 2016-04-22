@@ -24,7 +24,7 @@ class LoginApi extends MySQL_CRUD_API {
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		
 		$sql = "select * FROM Trekker where email='" . mysqli_real_escape_string ( $db, $data->email ) . "' and password='" . mysqli_real_escape_string ( $db, $pwd ) . "'";
-		syslog ( LOG_INFO, "sq " . $sql );
+		
 		$result = mysqli_query ( $db, $sql );
 		
 		if ($result->num_rows == 1) {

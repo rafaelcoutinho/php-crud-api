@@ -89,7 +89,7 @@ class SenhaApi extends MySQL_CRUD_API {
 			$codigo = $_GET ["c"];
 			
 			$email = strtolower ( $_GET ["email"] );
-			syslog ( LOG_INFO, "Confirmando Pedido '$codigo' '$email'" );
+			
 			$params = array ();
 			$params [] = $email;
 			$params [] = $codigo;
@@ -118,6 +118,41 @@ class SenhaApi extends MySQL_CRUD_API {
 				$resp = "Uma nova senha foi enviada para seu e-mail.";
 			} catch ( InvalidArgumentException $e ) {
 				syslog ( LOG_INFO, "ERRO " . $e );
+			}
+		} else if (strcmp ( $paths [0], "Alterar" ) == 0) {
+			
+			$sqlFindUser = "select * FROM Trekker where id=?";
+			
+			$user = $this->getEntity ( $db, $sqlFindUser, array (
+					$data->id 
+			) );
+			
+			if ($user != null) {
+				$userJson = json_decode ( $user );
+				$oldPwdMd5 = md5 ( $data->oldPwd );
+				if (($userJson->password == null || strlen ( $userJson->password ) == 0) && $userJson->fbId != null && strlen ( $userJson->fbId ) > 0) {
+					$this->exitWith ( "Facebook user ", 500, CONFIRMING_USER_NO_PWD );
+				}
+				if (strcmp ( $userJson->password, $oldPwdMd5 ) == 0) {
+					
+					$sqlUpdate = "update Trekker set password=? where id=?";
+					$result = $this->query ( $db, $sqlUpdate, array (
+							md5 ( $data->newPwd ),
+							$data->id 
+					) );
+					
+					$affected = $this->affected_rows ( $db, $result );
+					if ($affected == 0) {
+						$this->exitWith ( "Falhou ao alterar senha", 500, 1 );
+					}
+					$resp = json_encode ( array (
+							"success" => true 
+					) );
+				} else {
+					$this->exitWith ( "Senha inválida", 500, INVALID_PWD );
+				}
+			} else {
+				$this->exitWith ( "Usuário inválido ", 500, 2 );
 			}
 		} else {
 			$this->exitWith ( "Sem match " . serialize ( $paths ), 404, 1 );

@@ -156,7 +156,20 @@ FROM
 			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe";
 			$resp = $this->listTable ( $db, $sql, array () );
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
-			$sql = "select * from Etapa where data>(UNIX_TIMESTAMP()*1000) order by data limit 1";
+			
+			if (strcmp ( $_SERVER ['REQUEST_METHOD'], "POST" ) == 0) {
+				$idEtapa = $paths [1];
+				$sql = "update Etapa set active=(0)";
+				$result = $this->query($db,$sql,array());
+				$sql = "update Etapa set active=(1) where id=?";
+				$result = $this->query($db,$sql,array($idEtapa));
+				$affected = $this->affected_rows ( $db, $result );
+				if($affected==0){
+					$this->exitWith ( "Falhou ao setar como ativa etapa id ".$idEtapa);
+				}
+				
+			}
+			$sql = "select * from Etapa where active=(1)";
 			$resp = $this->getEntity ( $db, $sql, array () );
 		} else if (strcmp ( $paths [0], "Msg" ) == 0) {
 			$userId = $paths [1];
