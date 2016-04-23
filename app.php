@@ -50,7 +50,7 @@ class AppApi extends MySQL_CRUD_API {
 			} else {
 				$idEtapa = $paths [1];
 				if ($l == 2) {
-					$resp = $this->getEntity ( $db, "select * from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
+					$resp = $this->getEntity ( $db, "select e.*,l.nome from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
 							$idEtapa 
 					) );
 				} else {
