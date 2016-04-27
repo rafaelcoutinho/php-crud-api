@@ -639,8 +639,12 @@ class REST_CRUD_API {
 			if ($errorCode == null) {
 				$errorCode = - 1;
 			}
-			
-			die ( "{\"error\":true, \"errorMsg\":\"$type\",\"errorCode\":$errorCode}" );
+			$err = array (
+					'error' => true,
+					'errorMsg' => $type,
+					'errorCode' => $errorCode 
+			);
+			die ( json_encode ( $err ) );
 		} else {
 			throw new \Exception ( $type );
 		}
@@ -696,11 +700,11 @@ class REST_CRUD_API {
 		$count = 0;
 		$field = false;
 		$hasIdField = false;
-		if(strcspn($tables [0], "Competidor")==0){
+		if (strcspn ( $tables [0], "Competidor" ) == 0) {
 			return array (
-						$key,
-						'id' 
-				);
+					$key,
+					'id' 
+			);
 		}
 		if ($result = $this->query ( $db, $this->queries ['reflect_pk'], array (
 				$tables [0],
@@ -714,8 +718,7 @@ class REST_CRUD_API {
 		}
 		if ($count != 1 || $field == false) {
 			
-			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], 
-					array (
+			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], array (
 					$tables [0],
 					$database 
 			) )) {
@@ -1159,7 +1162,7 @@ class REST_CRUD_API {
 			}
 			
 			$this->close ( $result );
-		} else {			
+		} else {
 			return NULL;
 		}
 		
@@ -1172,7 +1175,7 @@ class REST_CRUD_API {
 		foreach ( $row as $key => $value ) {
 			$response .= "\"" . $key . "\":";
 			
-			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1||$colInfo [$key] == 246) {
+			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
 				
 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
 					$response .= "null";
@@ -1535,7 +1538,6 @@ class REST_CRUD_API {
 		
 		return "[" . $response . "]";
 	}
-	
 	protected function generateRandomString($length = 10) {
 		$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 		$charactersLength = strlen ( $characters );
@@ -1558,7 +1560,7 @@ class REST_CRUD_API {
 		$words [] = "lanterna";
 		$words [] = "planilha";
 		$words [] = "equipe";
-	
+		
 		$characters = '0123456789';
 		$charactersLength = strlen ( $characters );
 		$palavrasCount = count ( $words );
@@ -1566,7 +1568,7 @@ class REST_CRUD_API {
 		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
 		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
 		$randomString .= $words [rand ( 0, $palavrasCount - 1 )];
-	
+		
 		return $randomString;
 	}
 	public function executeCommand() {
