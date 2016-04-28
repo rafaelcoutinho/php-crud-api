@@ -41,7 +41,7 @@ class UserApi extends MySQL_CRUD_API {
 			$resp = $this->getEntity ( $db, $sqlByEmail, array (
 					$_GET ["email"] 
 			) );
-			syslog ( LOG_INFO, " resp: " . $resp );
+			
 			$newUser = strlen ( $resp ) == 0;
 			$needsAPwd = false;
 			if ($newUser == false) {
@@ -80,7 +80,7 @@ class UserApi extends MySQL_CRUD_API {
 				
 				try {
 					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
-					syslog ( LOG_INFO, $email . ": " . $msg );
+					
 					$message = new Message ();
 					$message->setReplyTo ( "northapp@northbrasil.com.br" );
 					$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );

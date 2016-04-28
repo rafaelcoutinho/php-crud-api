@@ -32,7 +32,11 @@ class LoginApi extends MySQL_CRUD_API {
 			if ($row = $this->fetch_assoc ( $result )) {
 				
 				if (strlen ( $row ["password"] ) == 0) {
-					$this->exitWith ( "Facebook user", 401, 101 );
+					if (strlen ( $row ["fbId"] )> 0) {
+						$this->exitWith ( "Facebook user", 401, 101 );
+					}else{
+						$this->exitWith ( "Existing inactive user", 403, 103 );
+					}
 				} else if (strcmp ( $row ["password"], $pwd ) == 0) {
 					
 					$row ["password"] = null;

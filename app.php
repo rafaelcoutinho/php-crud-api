@@ -181,7 +181,7 @@ FROM
 			$resp = array ();
 			if (strcmp ( $data->action, "registergcm" ) == 0) {
 				$now = (round ( microtime ( true ) * 1000 ));
-				$sql = "delete MsgDevice where token=?";
+				$sql = "delete from MsgDevice where token=?";
 				$this->query ( $db, $sql, array (
 						$data->d 
 				) );
