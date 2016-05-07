@@ -1170,50 +1170,67 @@ class REST_CRUD_API {
 	}
 	protected function getObjectJson($row, $colInfo) {
 		$keys = array_keys ( $row );
-		$response = array();
+		$response = array ();
 		
 		foreach ( $row as $key => $value ) {
 			
-				
 			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
-		
+				
 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
-					$response[$key] = null;
+					$response [$key] = null;
 				} else {
-					$response[$key]= (int)$row [$key];
+					switch ($colInfo [$key]) {
+						case 3 :
+						case 16 :
+						case 2 :
+						case 1 :
+						case 9 :
+						case 3 :
+						case 246 :
+							
+							$response [$key] = intval ( $row [$key] );
+							
+							break;
+						case 8 :
+							$response [$key] = floatval($row [$key]);
+							break;
+						default :
+							$response [$key] = $row [$key];
+					}
 				}
 			} else {
-// 				$response .= "\"" . $row [$key] . "\"";
-				$response[$key]= $row [$key];
+				// $response .= "\"" . $row [$key] . "\"";
+				$response [$key] = $row [$key];
 			}
-// 			$response .= ",";
+// 			$response [$key . "_t"] = $colInfo [$key] . " - " . $row [$key];
+			// $response .= ",";
 		}
-// 		$response = rtrim ( $response, "," );
-// 		$response .= "}";
+		// $response = rtrim ( $response, "," );
+		// $response .= "}";
 		return $response;
 	}
 	protected function getObject($row, $colInfo) {
-// 		$keys = array_keys ( $row );
-// 		$response = "{";
+		// $keys = array_keys ( $row );
+		// $response = "{";
 		
-// 		foreach ( $row as $key => $value ) {
-// 			$response .= "\"" . $key . "\":";
-			
-// 			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
-				
-// 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
-// 					$response .= "null";
-// 				} else {
-// 					$response .= $row [$key];
-// 				}
-// 			} else {
-// 				$response .= "\"" . $row [$key] . "\"";
-// 			}
-// 			$response .= ",";
-// 		}
-// 		$response = rtrim ( $response, "," );
-// 		$response .= "}";
-		return json_encode($this->getObjectJson($row, $colInfo));
+		// foreach ( $row as $key => $value ) {
+		// $response .= "\"" . $key . "\":";
+		
+		// if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
+		
+		// if (is_nan ( $row [$key] ) || $row [$key] == null) {
+		// $response .= "null";
+		// } else {
+		// $response .= $row [$key];
+		// }
+		// } else {
+		// $response .= "\"" . $row [$key] . "\"";
+		// }
+		// $response .= ",";
+		// }
+		// $response = rtrim ( $response, "," );
+		// $response .= "}";
+		return json_encode ( $this->getObjectJson ( $row, $colInfo ) );
 	}
 	protected function listCommandInternal($parameters) {
 		extract ( $parameters );
@@ -1545,28 +1562,22 @@ class REST_CRUD_API {
 		return $tree;
 	}
 	protected function listTableJson($db, $sql, $params) {
-		$response = array();
+		$response = array ();
 		
 		if ($result = $this->query ( $db, $sql, $params )) {
 			$colInfo = $this->getColInfo ( $result, true );
 			while ( $row = $this->fetch_assoc ( $result ) ) {
-				$response[] = $this->getObjectJson ( $row, $colInfo );
-				
+				$response [] = $this->getObjectJson ( $row, $colInfo );
 			}
 			$this->close ( $result );
 		} else {
 			syslog ( LOG_INFO, "nao achou " );
 		}
 		
-		
-		
 		return $response;
 	}
 	protected function listTable($db, $sql, $params) {
-
-	
-	
-		return json_encode($this->listTableJson($db,$sql,$params));
+		return json_encode ( $this->listTableJson ( $db, $sql, $params ) );
 	}
 	protected function generateRandomString($length = 10) {
 		$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';

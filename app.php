@@ -229,7 +229,7 @@ class AppApi extends MySQL_CRUD_API {
 				}
 			}
 			$sql = "select * from Etapa where active=(1)";
-			$resp = $this->getEntity ( $db, $sql, array () );
+			$resp = $this->getEntity ( $db, $sql, array (),true );
 		} else if (strcmp ( $paths [0], "Msg" ) == 0) {
 			$userId = $paths [1];
 			$request_body = file_get_contents ( 'php://input' );
