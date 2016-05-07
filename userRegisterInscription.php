@@ -27,6 +27,7 @@ class UserApi extends MySQL_CRUD_API {
 			$this->headersCommand ( NULL );
 		}
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
+			header ( 'Access-Control-Allow-Origin: *' );
 			return;
 		}
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "GET" ) == 0) {
@@ -83,9 +84,8 @@ class UserApi extends MySQL_CRUD_API {
 					
 					$message = new Message ();
 					$message->setReplyTo ( "northapp@northbrasil.com.br" );
-					$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
+					$message->setSender ( "northapp@northbrasil.com.br" );
 					$message->addTo ( $email );
-					
 					
 					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
 					$message->setTextBody ( $msg );
@@ -120,11 +120,13 @@ class UserApi extends MySQL_CRUD_API {
 		$data->email = strtolower ( $data->email );
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		$existingUser = NULL;
-		$sqlByEmail = "select * FROM Trekker where email='" . mysqli_real_escape_string ( $db, $data->email ) . "'";
+		$sqlByEmail = "select * FROM Trekker where email=?";
 		
-		$result = mysqli_query ( $db, $sqlByEmail );
+		$result = $this->query ( $db, $sqlByEmail, array (
+				$data->email 
+		) );
 		$email = $data->email;
-		if ($result->num_rows == 0) {
+		if (! results) {
 			syslog ( LOG_INFO, "Usuário novo " . $data->email );
 			// criar novo.
 			if ($data->fbId == null && ! $data->password) {
@@ -140,12 +142,12 @@ class UserApi extends MySQL_CRUD_API {
 			}
 			
 			$params = array (
-					mysqli_real_escape_string ( $db, $data->email ),
-					mysqli_real_escape_string ( $db, $pwd ),
-					mysqli_real_escape_string ( $db, $data->nome ),
-					mysqli_real_escape_string ( $db, $data->fbId ),
-					mysqli_real_escape_string ( $db, $data->telefone ),
-					mysqli_real_escape_string ( $db, "ACTIVE" ) 
+					$data->email,
+					$pwd,
+					$data->nome,
+					$data->fbId,
+					$data->telefone,
+					"ACTIVE" 
 			);
 			$sql = "insert into Trekker (email,password,nome,fbId,telefone,state) VALUES (?,?,?,?,?,?)";
 			$result = $this->query ( $db, $sql, $params );
@@ -157,7 +159,7 @@ class UserApi extends MySQL_CRUD_API {
 			}
 		} else {
 			// ja existe, pode estar vindo pelo facebook
-			if ($row = $result->fetch_assoc ()) {
+			if ($row = $this->fetch_assoc ( $result )) {
 				$existingUser = $row;
 			}
 			
@@ -214,11 +216,13 @@ class UserApi extends MySQL_CRUD_API {
 			$this->query ( $db, $sql, $params );
 		}
 		
-		$result = mysqli_query ( $db, $sqlByEmail );
+		$result = $this->qyery ( $db, $sqlByEmail, array (
+				$data->email 
+		) );
 		
-		if ($result->num_rows == 1) {
+		if ($result) {
 			// output data of each row
-			if ($row = $result->fetch_assoc ()) {
+			if ($row = $this->fetch_assoc ( $result )) {
 				$row ["password"] = null;
 				$this->startOutput ( null );
 				echo json_encode ( $row );

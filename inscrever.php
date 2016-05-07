@@ -278,8 +278,11 @@ class InscricaoApi extends MySQL_CRUD_API {
 		
 		$this->validateInscricao ( $db, $idEquipe, $data->etapa->id, $idLider, $data->integrantes, $data->removidos );
 		
-		// $this->associaTrekkerEquipe($db,$idLider,$idEquipe,$milliseconds);
-		$this->createInscricao ( $db, $idLider, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
+		if (strcmp ( $data->lider->paga, "1" ) == 0) {
+			syslog ( LOG_INFO, "Líder já está com inscrição confirmada" );
+		} else {
+			$this->createInscricao ( $db, $idLider, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
+		}
 		
 		syslog ( LOG_INFO, "Há " . count ( $data->integrantes ) . "  integrantes " );
 		$integrantes = array ();
@@ -288,14 +291,18 @@ class InscricaoApi extends MySQL_CRUD_API {
 			$integrante = $data->integrantes [$i];
 			
 			$idIntegrante = $integrante->id_Trekker;
-			
-			if (! $idIntegrante) {
-				$idIntegrante = $this->saveTrekker ( $db, $integrante, "PASSIVE" );
+			if (strcmp ( $integrante->paga, "1" ) == 0) {
+				syslog ( LOG_INFO, "$integrante->nome já está com inscrição confirmada" );
+			} else {
+				if (! $idIntegrante) {
+					$idIntegrante = $this->saveTrekker ( $db, $integrante, "PASSIVE" );
+				}
+				
+				$this->createInscricao ( $db, $idIntegrante, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
 			}
-			
-			$this->createInscricao ( $db, $idIntegrante, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
 			$integrantes [] = array (
-					'id_Trekker' => $idIntegrante 
+					'id_Trekker' => $idIntegrante,
+					'paga' => $integrante->paga 
 			);
 		}
 		
@@ -322,7 +329,10 @@ class InscricaoApi extends MySQL_CRUD_API {
 		date_default_timezone_set ( 'America/Sao_Paulo' );
 		$liderInfo = $this->sendConfEmailLider ( $db, $idLider, $equipeInfo, $etapaInfo );
 		for($i = 0; $i < count ( $integrantes ); $i ++) {
-			$this->sendConfEmailIntegrantes ( $db, $data->integrantes [$i]->id_Trekker, $equipeInfo, $etapaInfo, $liderInfo );
+			if (stcmp ( $data->integrantes [$i]->paga, "1" ) == 0) {
+			} else {
+				$this->sendConfEmailIntegrantes ( $db, $data->integrantes [$i]->id_Trekker, $equipeInfo, $etapaInfo, $liderInfo );
+			}
 		}
 		$this->startOutput ( $callback );
 		
@@ -343,7 +353,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		try {
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
-			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
+			$message->setSender ( "northapp@northbrasil.com.br" );
 			$message->addTo ( $liderInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
@@ -377,7 +387,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		try {
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
-			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
+			$message->setSender ( "northapp@northbrasil.com.br" );
 			$message->addTo ( $integranteInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
