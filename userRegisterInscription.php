@@ -216,7 +216,7 @@ class UserApi extends MySQL_CRUD_API {
 			$this->query ( $db, $sql, $params );
 		}
 		
-		$result = $this->qyery ( $db, $sqlByEmail, array (
+		$result = $this->query ( $db, $sqlByEmail, array (
 				$data->email 
 		) );
 		
