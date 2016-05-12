@@ -126,7 +126,7 @@ class UserApi extends MySQL_CRUD_API {
 				$data->email 
 		) );
 		$email = $data->email;
-		if (! results) {
+		if (! $results) {
 			syslog ( LOG_INFO, "Usuário novo " . $data->email );
 			// criar novo.
 			if ($data->fbId == null && ! $data->password) {
@@ -158,7 +158,8 @@ class UserApi extends MySQL_CRUD_API {
 				$idInserted = $this->insert_id ( $db, $result );
 			}
 		} else {
-			// ja existe, pode estar vindo pelo facebook
+			// ja existe, pode estar vindo pelo facebook ou com senha temporaria
+			syslog ( LOG_INFO, "Usuário logando com FB ou senha temporaria " . $data->email );
 			if ($row = $this->fetch_assoc ( $result )) {
 				$existingUser = $row;
 			}
@@ -181,7 +182,7 @@ class UserApi extends MySQL_CRUD_API {
 			$sql = 'UPDATE "!" SET ';
 			$params [] = "Trekker";
 			
-			if ($existingUser ["fbId"] == null) { // ) {
+			if ($existingUser ["fbId"] != null) { 
 				$sql .= '"!"=?,';
 				$params [] = 'fbId';
 				$params [] = $data->fbId;
@@ -212,24 +213,32 @@ class UserApi extends MySQL_CRUD_API {
 			$sql .= ' WHERE "!"=?';
 			$params [] = 'email';
 			$params [] = $data->email;
-			
+			//update usuario com dados novos
 			$this->query ( $db, $sql, $params );
+			$perror = $this->getError ( $db );
+			
+			if ($perror) {
+				syslog ( LOG_INFO, "error? '" . $perror . "'" );				
+				$this->exitWith ( 'Erro atualizando dados do competidor' . $perror, 500, 199 );
+			}
 		}
 		
-		$result = $this->query ( $db, $sqlByEmail, array (
+		$result = $this->getEntityJson( $db, $sqlByEmail, array (
 				$data->email 
-		) );
-		
+		),true );
+		syslog ( LOG_INFO, "a ".$result);
 		if ($result) {
-			// output data of each row
-			if ($row = $this->fetch_assoc ( $result )) {
-				$row ["password"] = null;
-				$this->startOutput ( null );
-				echo json_encode ( $row );
-				$this->endOutput ( null );
-			}
+			echo json_decode( $result);
 		} else {
-			$this->exitWith ( 'Failed to insert object: ' . $error, 500, GENERIC_DB_ERROR );
+			$perror = $this->getError ( $db );
+				
+			if ($perror) {
+				syslog ( LOG_INFO, "error? '" . $perror . "'" );
+				$this->exitWith ( 'Falhou ao carregar o usuario com o email: '.$data->email.': '. $perror, 500, GENERIC_DB_ERROR );
+			}else{
+				$this->exitWith ( 'Falhou ao carregar o usuario com o email: '.$data->email.': ERRO desconhecido', 500, GENERIC_DB_ERROR );
+			
+			}
 		}
 	}
 }

@@ -1168,6 +1168,23 @@ class REST_CRUD_API {
 		
 		return $response;
 	}
+	protected function getEntityJson($db, $sql, $params, $usename) {
+		
+	
+		if ($result = $this->query ( $db, $sql, $params )) {
+			$colInfo = $this->getColInfo ( $result, $usename );
+			if ($row = $this->fetch_assoc ( $result )) {
+	
+				$response = $this->getObjectJson( $row, $colInfo );
+			}
+				
+			$this->close ( $result );
+		} else {
+			return NULL;
+		}
+	
+		return $response;
+	}
 	protected function getObjectJson($row, $colInfo) {
 		$keys = array_keys ( $row );
 		$response = array ();
