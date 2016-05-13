@@ -114,7 +114,7 @@ class Grider extends MySQL_CRUD_API {
 		} else {
 			
 		}		
-		$sql = "select * FROM GridFull where id_Etapa=? order by  hora,minuto";
+		$sql = "select * FROM GridFull where id_Etapa=? order by id_Config desc, hora,minuto";
 		$params [] = ($_GET ["e"]) - 145;
 		$counter = 0;
 		$nomeConfig = "";
