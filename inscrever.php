@@ -143,8 +143,9 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$result = $this->query ( $db, 'INSERT INTO Inscricao (id_Trekker,id_Equipe,id_Etapa,data,id_Lider) VALUES (?,?,?,?,?)', $params );
 		syslog ( LOG_INFO, "createInscricao  " . $result );
 		$perror = $this->getError ( $db );
-		syslog ( LOG_INFO, "error? '" . $perror . "'" );
+		
 		if ($perror) {
+			syslog ( LOG_INFO, "error? '" . $perror . "'" );
 			$this->query ( $db, "ROLLBACK" );
 			$this->exitWith ( 'Erro inserindo inscrição ' . $perror, 500, 199 );
 		}
@@ -394,17 +395,16 @@ class InscricaoApi extends MySQL_CRUD_API {
 			$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
 			$msgText .= $this->getDefText ( $etapaInfo );
 			
-// 			syslog ( LOG_INFO, "params	" . $idLider . $equipeInfo->id );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->titulo );
-// 			syslog ( LOG_INFO, "params	" . $liderInfo->nome );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->id );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->data );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->local );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->endereco );
-// 			syslog ( LOG_INFO, "params	" . $etapaInfo->imgBig );
+			// syslog ( LOG_INFO, "params " . $idLider . $equipeInfo->id );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->titulo );
+			// syslog ( LOG_INFO, "params " . $liderInfo->nome );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->id );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->data );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->local );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->endereco );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->imgBig );
 			
 			$msgText .= $this->createGoogleNowCard ( $idLider . $equipeInfo->id, $etapaInfo->titulo, $liderInfo->nome, $etapaInfo->id, $etapaInfo->data, $etapaInfo->local, $etapaInfo->endereco, "Itu", $etapaInfo->imgBig );
-			
 			
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
@@ -440,17 +440,21 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
-			$message = new Message ();
-			$message->setReplyTo ( "northapp@northbrasil.com.br" );
-			$message->setSender ( "northapp@northbrasil.com.br" );
-			$message->addTo ( $integranteInfo->email );
-			
-			$message->setSubject ( "Inscrição na CopaNorth" );
-			// $message->setTextBody ( $msgText );
-			
-			$message->setHtmlBody ();
-			
-			$message->send ();
+			if ($DEBUG != TRUE) {
+				$message = new Message ();
+				$message->setReplyTo ( "northapp@northbrasil.com.br" );
+				$message->setSender ( "northapp@northbrasil.com.br" );
+				$message->addTo ( $integranteInfo->email );
+				
+				$message->setSubject ( "Inscrição na CopaNorth" );
+				// $message->setTextBody ( $msgText );
+				
+				$message->setHtmlBody ();
+				
+				$message->send ();
+			} else {
+				syslog ( LOG_INFO, "$msgText" );
+			}
 		} catch ( Exception $e ) {
 			syslog ( LOG_INFO, "ERRO " . $e );
 		}

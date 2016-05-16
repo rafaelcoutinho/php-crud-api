@@ -32,7 +32,7 @@ class UserApi extends MySQL_CRUD_API {
 		}
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "GET" ) == 0) {
 			$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
-			$existingUser = NULL;
+			
 			$email = strtolower ( $_GET ["email"] );
 			
 			if (strlen ( $email ) == 0) {
@@ -82,17 +82,18 @@ class UserApi extends MySQL_CRUD_API {
 				try {
 					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
 					
-					$message = new Message ();
-					$message->setReplyTo ( "northapp@northbrasil.com.br" );
-					$message->setSender ( "northapp@northbrasil.com.br" );
-					$message->addTo ( $email );
+					// $message = new Message ();
+					// $message->setReplyTo ( "northapp@northbrasil.com.br" );
+					// $message->setSender ( "northapp@northbrasil.com.br" );
+					// $message->addTo ( $email );
 					
-					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
-					$message->setTextBody ( $msg );
+					// $message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
+					// $message->setTextBody ( $msg );
 					
-					$message->setHtmlBody ( "<html><body>Um pedido para acessar a NorthBrasil foi feito com seu e-mail.<br><br>A senha temporária é '$codigo'<br><br>Caso não tenha feito essa solicitação por favor ignore esta mensagem.</body></html>" );
+					// $message->setHtmlBody ( "<html><body>Um pedido para acessar a NorthBrasil foi feito com seu e-mail.<br><br>A senha temporária é '$codigo'<br><br>Caso não tenha feito essa solicitação por favor ignore esta mensagem.</body></html>" );
 					
-					$message->send ();
+					// $message->send ();
+					syslog ( LOG_INFO, " " . $msg );
 				} catch ( InvalidArgumentException $e ) {
 					syslog ( LOG_INFO, "ERRO " . $e );
 				}
@@ -122,11 +123,13 @@ class UserApi extends MySQL_CRUD_API {
 		$existingUser = NULL;
 		$sqlByEmail = "select * FROM Trekker where email=?";
 		
-		$result = $this->query ( $db, $sqlByEmail, array (
+		$existingUser = $this->getEntityJson ( $db, $sqlByEmail, array (
 				$data->email 
-		) );
+		), true );
+		
 		$email = $data->email;
-		if (! $results) {
+		
+		if (! $existingUser) {
 			syslog ( LOG_INFO, "Usuário novo " . $data->email );
 			// criar novo.
 			if ($data->fbId == null && ! $data->password) {
@@ -160,19 +163,14 @@ class UserApi extends MySQL_CRUD_API {
 		} else {
 			// ja existe, pode estar vindo pelo facebook ou com senha temporaria
 			syslog ( LOG_INFO, "Usuário logando com FB ou senha temporaria " . $data->email );
-			if ($row = $this->fetch_assoc ( $result )) {
-				$existingUser = $row;
-			}
-			
-			$this->close ( $result );
 			
 			if (! $data->fbId || $data->fbId == NULL) {
-				if (strcmp ( $existingUser ["state"], "ACTIVE" ) == 0 && strlen ( $existingUser ["password"] ) > 0) {
+				if (strcmp ( $existingUser->state, "ACTIVE" ) == 0 && strlen ( $existingUser->password ) > 0) {
 					$this->exitWith ( "Usuario já existe", 403, DUPE_USER );
 				} else if (! $data->password) {
 					$this->exitWith ( "Senha é obrigatória", 403, CONFIRMING_USER_NO_PWD );
 				}
-			} else if ($existingUser ["fbId"] != null && strcmp ( $data->fbId, $existingUser ["fbId"] ) < 0) {
+			} else if ($existingUser->fbId != null && strcmp ( $data->fbId, $existingUser->fbId ) < 0) {
 				$this->exitWith ( "Usuário FB divergente", 403, DIVERGENT_FB );
 			}
 			
@@ -182,7 +180,7 @@ class UserApi extends MySQL_CRUD_API {
 			$sql = 'UPDATE "!" SET ';
 			$params [] = "Trekker";
 			
-			if ($existingUser ["fbId"] != null) { 
+			if ($existingUser->fbId != null) {
 				$sql .= '"!"=?,';
 				$params [] = 'fbId';
 				$params [] = $data->fbId;
@@ -213,31 +211,30 @@ class UserApi extends MySQL_CRUD_API {
 			$sql .= ' WHERE "!"=?';
 			$params [] = 'email';
 			$params [] = $data->email;
-			//update usuario com dados novos
+			// update usuario com dados novos
 			$this->query ( $db, $sql, $params );
 			$perror = $this->getError ( $db );
 			
 			if ($perror) {
-				syslog ( LOG_INFO, "error? '" . $perror . "'" );				
+				syslog ( LOG_INFO, "error? '" . $perror . "'" );
 				$this->exitWith ( 'Erro atualizando dados do competidor' . $perror, 500, 199 );
 			}
 		}
 		
-		$result = $this->getEntityJson( $db, $sqlByEmail, array (
+		$result = $this->getEntityJson ( $db, $sqlByEmail, array (
 				$data->email 
-		),true );
-		syslog ( LOG_INFO, "a ".$result);
+		), true );
+		syslog ( LOG_INFO, "$result " );
 		if ($result) {
-			echo json_decode( $result);
+			echo json_decode ( $result );
 		} else {
 			$perror = $this->getError ( $db );
-				
+			
 			if ($perror) {
 				syslog ( LOG_INFO, "error? '" . $perror . "'" );
-				$this->exitWith ( 'Falhou ao carregar o usuario com o email: '.$data->email.': '. $perror, 500, GENERIC_DB_ERROR );
-			}else{
-				$this->exitWith ( 'Falhou ao carregar o usuario com o email: '.$data->email.': ERRO desconhecido', 500, GENERIC_DB_ERROR );
-			
+				$this->exitWith ( 'Falhou ao carregar o usuario com o email: ' . $data->email . ': ' . $perror, 500, GENERIC_DB_ERROR );
+			} else {
+				$this->exitWith ( 'Falhou ao carregar o usuario com o email: ' . $data->email . ': ERRO desconhecido', 500, GENERIC_DB_ERROR );
 			}
 		}
 	}

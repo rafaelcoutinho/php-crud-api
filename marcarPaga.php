@@ -19,11 +19,11 @@ class AdicionarAoGrid extends GridCommons {
 			$gridConfig = $this->getGridConfig ( $db, $idCategoria );
 			$inicio_minuto = $gridConfig ["inicio_minuto"];
 			$inicio_hora = $gridConfig ["inicio_hora"];
-			echo "Inicio às $inicio_hora $inicio_minuto \n";
+			echo "Inicio as $inicio_hora $inicio_minuto <br><pre>";
 			
 			$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $idEtapa, $gridConfig, true );
 			
-			echo " totaldeslocamento $deslocamentoEmMinutos";
+			echo " totaldeslocamento $deslocamentoEmMinutos\n";
 			$deslocamentoEmMinutos += $inicio_minuto;
 			$addHour = ( int ) ($deslocamentoEmMinutos / 60);
 			
@@ -31,7 +31,7 @@ class AdicionarAoGrid extends GridCommons {
 			$hora += $addHour;
 			
 			$minutoToGo = ($deslocamentoEmMinutos % 60);
-			echo "Largada às $hora:$minutoToGo";
+			echo "Largada as $hora: $minutoToGo";
 			return;
 		}
 		

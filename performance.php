@@ -13,19 +13,30 @@ class Resultados extends MySQL_CRUD_API {
 	}
 	private function getEquipe($numero, $grids, $db, $idEtapa) {
 		$grid = $this->getGridInfo ( $numero, $grids );
-		$diff = ( int ) $numero - $grid ["numeracao"];
+		$posicaoEquipeNoGridDaCategoria = ( int ) $numero - $grid ["numeracao"];
 		$minutos = 0;
-		// syslog ( LOG_INFO, $grid ["quota_intervalo1"]." ".$diff." ".$numero." ". $grid ["numeracao"]." ". $grid ["nome"]. " ".$grid ["inicio_hora"].":".$grid ["inicio_minuto"]);
-		if ($grid ["quota_intervalo1"] != null && $diff > $grid ["quota_intervalo1"]) {
-			$remaining = $diff - $grid ["quota_intervalo1"];
-			$minutos = $remaining * $grid ["intervalo2"];
-			$diff = $diff - $remaining;
+		syslog ( LOG_INFO, "Numero:".$numero." DiffCate:".$posicaoEquipeNoGridDaCategoria." --- $posicaoEquipeNoGridDaCategoria>".$grid ["quota_intervalo1"]." usa ".$grid ["intervalo2"]);
+		if ($grid ["quota_intervalo1"] != null && $posicaoEquipeNoGridDaCategoria > $grid ["quota_intervalo1"]) {
+			
+			$equipesDesdeAQuota = $posicaoEquipeNoGridDaCategoria - $grid ["quota_intervalo1"];			
+			$minutos = $equipesDesdeAQuota * $grid ["intervalo2"];
+			syslog ( LOG_INFO, "Total pós quota:".$equipesDesdeAQuota." soma ".$minutos);
+			$totalDeMinutosAteQuota=$grid ["quota_intervalo1"]*$grid ["intervalo1"];
+			
+			syslog ( LOG_INFO, "Total pós quota:".$equipesDesdeAQuota." soma ".$minutos." $totalDeMinutosAteQuota");
+			$minutos+= $totalDeMinutosAteQuota; //total até a quota
+			$horas = ( int ) ($minutos / 60);
+			$horas += ( int ) $grid ["inicio_hora"];
+			syslog ( LOG_INFO, "$horas");
+			$minutos = ( int ) $minutos % 60;
+		}else{		
+			$minutos += $posicaoEquipeNoGridDaCategoria * $grid ["intervalo1"];
+			$minutos += $grid ["inicio_minuto"];
+			$horas = ( int ) ($minutos / 60);
+			$horas += ( int ) $grid ["inicio_hora"];
+			$minutos = ( int ) $minutos % 60;
 		}
-		$minutos += $diff * $grid ["intervalo1"];
-		$minutos += $grid ["inicio_minuto"];
-		$horas = ( int ) ($minutos / 60);
-		$horas += ( int ) $grid ["inicio_hora"];
-		$minutos = ( int ) $minutos % 60;
+		
 		
 		$params = array ();
 		$params [] = $idEtapa;
@@ -44,11 +55,9 @@ class Resultados extends MySQL_CRUD_API {
 			$gridInf ["equipe"] = json_decode ( $equipe );
 		}
 		
-		// $resp["infer"] = $gridInf;
 		
 		return $gridInf;
 		
-		// return $horas . ":" . $minutos . "/quota'" . $grid ["quota_intervalo1"]."',h:".$grid ["inicio_hora"].":".$grid ["inicio_minuto"].",i:".$grid ["intervalo1"].",diff:".$diff." ".$grid ["nome"];
 	}
 	public function executeCommand() {
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {

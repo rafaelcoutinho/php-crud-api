@@ -5,6 +5,7 @@ define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
 define ( 'CONFIRMING_USER_NO_PWD', '803' );
 define ( 'GENERIC_DB_ERROR', '990' );
+
 date_default_timezone_set ( "America/Sao_Paulo" );
 class MySQL_CRUD_API extends REST_CRUD_API {
 	protected $queries = array (
@@ -1169,20 +1170,18 @@ class REST_CRUD_API {
 		return $response;
 	}
 	protected function getEntityJson($db, $sql, $params, $usename) {
-		
-	
 		if ($result = $this->query ( $db, $sql, $params )) {
 			$colInfo = $this->getColInfo ( $result, $usename );
 			if ($row = $this->fetch_assoc ( $result )) {
-	
-				$response = $this->getObjectJson( $row, $colInfo );
-			}
 				
+				$response = $this->getObjectJson ( $row, $colInfo );
+			}
+			
 			$this->close ( $result );
 		} else {
 			return NULL;
 		}
-	
+		
 		return $response;
 	}
 	protected function getObjectJson($row, $colInfo) {
@@ -1209,7 +1208,7 @@ class REST_CRUD_API {
 							
 							break;
 						case 8 :
-							$response [$key] = floatval($row [$key]);
+							$response [$key] = floatval ( $row [$key] );
 							break;
 						default :
 							$response [$key] = $row [$key];
@@ -1219,7 +1218,7 @@ class REST_CRUD_API {
 				// $response .= "\"" . $row [$key] . "\"";
 				$response [$key] = $row [$key];
 			}
-// 			$response [$key . "_t"] = $colInfo [$key] . " - " . $row [$key];
+			// $response [$key . "_t"] = $colInfo [$key] . " - " . $row [$key];
 			// $response .= ",";
 		}
 		// $response = rtrim ( $response, "," );
