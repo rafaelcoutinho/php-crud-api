@@ -155,21 +155,29 @@ class InscricaoApi extends MySQL_CRUD_API {
 		if ($data->nome == null) {
 			$this->exitWith ( "Missing nome trekker", 401, 801 );
 		}
+		
 		if (filter_var ( $data->email, FILTER_VALIDATE_EMAIL )) {
 			
 			$type = "PASSIVE_EMAIL";
 		}
 		
 		$params = array (
-				mysqli_real_escape_string ( $db, $data->email ),
-				mysqli_real_escape_string ( $db, $pwd ),
-				mysqli_real_escape_string ( $db, $data->nome ),
-				mysqli_real_escape_string ( $db, $data->fbId ),
-				mysqli_real_escape_string ( $db, $data->telefone ),
-				mysqli_real_escape_string ( $db, $type ) 
+				$data->email,
+				"",
+				$data->nome,
+				$data->fbId,
+				$data->telefone,
+				$type 
 		);
 		$sql = "insert into Trekker (email,password,nome,fbId,telefone,state) VALUES (?,?,?,?,?,?)";
+		
 		$result = $this->query ( $db, $sql, $params );
+		$perror = $this->getError ( $db );
+		if ($perror) {
+			syslog ( LOG_INFO, "error? '" . $perror . "'" );
+			$this->query ( $db, "ROLLBACK" );
+			$this->exitWith ( 'Erro inserindo trekker ' . $perror, 500, 199 );
+		}
 		if (! $result) {
 			$error = $this->getError ( $db );
 			$this->exitWith ( 'Failed to insert object: ' . $error, 500, 990 );
@@ -293,18 +301,23 @@ class InscricaoApi extends MySQL_CRUD_API {
 			
 			$idIntegrante = $integrante->id_Trekker;
 			if (strcmp ( $integrante->paga, "1" ) == 0) {
-				syslog ( LOG_INFO, "$integrante->nome já está com inscrição confirmada" );
+				syslog ( LOG_INFO, $integrante->nome . " já está com inscrição confirmada" );
 			} else {
 				if (! $idIntegrante) {
 					$idIntegrante = $this->saveTrekker ( $db, $integrante, "PASSIVE" );
+					syslog ( LOG_INFO, "Salvou novo integrante " . $idIntegrante );
 				}
 				
 				$this->createInscricao ( $db, $idIntegrante, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
 			}
+			
 			$integrantes [] = array (
 					'id_Trekker' => $idIntegrante,
 					'paga' => $integrante->paga 
 			);
+			// syslog ( LOG_INFO, "1Novo integrante id: " . $integrantes [0]->id_Trekker );
+			// syslog ( LOG_INFO, "2Novo integrante id: " . $integrante->id_Trekker );
+			// syslog ( LOG_INFO, "3Novo integrante id: " . $integrante ["id_Trekker"] . " eee " );
 		}
 		
 		$equipe = array (
@@ -329,10 +342,13 @@ class InscricaoApi extends MySQL_CRUD_API {
 		), true ) );
 		date_default_timezone_set ( 'America/Sao_Paulo' );
 		$liderInfo = $this->sendConfEmailLider ( $db, $idLider, $equipeInfo, $etapaInfo );
+		syslog ( LOG_INFO, "Vai enviar para integrantes" );
 		for($i = 0; $i < count ( $integrantes ); $i ++) {
-			if (strcmp ( $data->integrantes [$i]->paga, "1" ) == 0) {
+			if (strcmp ( $integrantes [$i] ["paga"], "1" ) == 0) {
+				syslog ( LOG_INFO, "Não envia email para competidor pois sua inscricao já está paga" );
 			} else {
-				$this->sendConfEmailIntegrantes ( $db, $data->integrantes [$i]->id_Trekker, $equipeInfo, $etapaInfo, $liderInfo );
+				syslog ( LOG_INFO, "Enviando para " . $integrantes [$i] ["id_Trekker"] );
+				$this->sendConfEmailIntegrantes ( $db, $integrantes [$i] ["id_Trekker"], $equipeInfo, $etapaInfo, $liderInfo );
 			}
 		}
 		$this->startOutput ( $callback );
@@ -395,24 +411,12 @@ class InscricaoApi extends MySQL_CRUD_API {
 			$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
 			$msgText .= $this->getDefText ( $etapaInfo );
 			
-			// syslog ( LOG_INFO, "params " . $idLider . $equipeInfo->id );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->titulo );
-			// syslog ( LOG_INFO, "params " . $liderInfo->nome );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->id );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->data );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->local );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->endereco );
-			// syslog ( LOG_INFO, "params " . $etapaInfo->imgBig );
-			
-			$msgText .= $this->createGoogleNowCard ( $idLider . $equipeInfo->id, $etapaInfo->titulo, $liderInfo->nome, $etapaInfo->id, $etapaInfo->data, $etapaInfo->local, $etapaInfo->endereco, "Itu", $etapaInfo->imgBig );
-			
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
 			$message->setSender ( "northapp@northbrasil.com.br" );
 			$message->addTo ( $liderInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
-			// $message->setTextBody ( $msgText );
 			
 			$message->setHtmlBody ( $msgText );
 			
@@ -436,25 +440,22 @@ class InscricaoApi extends MySQL_CRUD_API {
 			return;
 		}
 		
-		$integranteInfo = json_decode ( $integranteInfo );
-		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
+		
+		
+		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>";
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
-			if ($DEBUG != TRUE) {
-				$message = new Message ();
-				$message->setReplyTo ( "northapp@northbrasil.com.br" );
-				$message->setSender ( "northapp@northbrasil.com.br" );
-				$message->addTo ( $integranteInfo->email );
-				
-				$message->setSubject ( "Inscrição na CopaNorth" );
-				// $message->setTextBody ( $msgText );
-				
-				$message->setHtmlBody ();
-				
-				$message->send ();
-			} else {
-				syslog ( LOG_INFO, "$msgText" );
-			}
+			
+			$message = new Message ();
+			$message->setReplyTo ( "northapp@northbrasil.com.br" );
+			$message->setSender ( "northapp@northbrasil.com.br" );
+			$message->addTo ( $integranteInfo->email );
+			
+			$message->setSubject ( "Inscrição na CopaNorth" );
+			
+			$message->setHtmlBody ( $msgText );
+			
+			$message->send ();
 		} catch ( Exception $e ) {
 			syslog ( LOG_INFO, "ERRO " . $e );
 		}

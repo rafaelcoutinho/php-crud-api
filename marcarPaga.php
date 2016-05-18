@@ -53,14 +53,14 @@ class AdicionarAoGrid extends GridCommons {
 		
 		$resp ["gridUpdate"] = false;
 		if ($data->paga == 1) {
-			$this->query ( $db, "START TRANSACTION" );
-			$this->query ( $db, "BEGIN" );
+			
 			$equipe = $this->getEquipe ( $db, $data->id_Equipe );
 			$resp ["id_Equipe"] = $equipe ["id_Equipe"];
-			$resp ["id_Trekker"] =$data->id_Trekker;
+			$resp ["id_Trekker"] = $data->id_Trekker;
 			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $data->id_Equipe );
 			if ($gridInfo == null) {
-				
+				$this->query ( $db, "START TRANSACTION" );
+				$this->query ( $db, "BEGIN" );
 				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
 				$dataEtapa = $this->getDataEtapa ( $db, $data->id_Etapa );
 				
@@ -87,16 +87,25 @@ class AdicionarAoGrid extends GridCommons {
 				$this->insertEquipeGrid ( $db, $equipe ["id_Equipe"], $data->id_Etapa, $hora, $minutoToGo, $gridConfig ["id"] );
 				$this->updateInscricao ( $db, $data );
 				$resp ["gridUpdate"] = true;
-				$resp ["horario"] = $hora . ":" . $minutoToGo;
+				if ($minutoToGo < 10) {
+					$resp ["horario"] = $hora . ":0" . $minutoToGo;
+				} else {
+					$resp ["horario"] = $hora . ":" . $minutoToGo;
+				}
 				
-				
+				$this->query ( $db, "COMMIT" );
 			} else {
 				syslog ( LOG_INFO, "Equipe já estava no grid" );
 				
 				$this->updateInscricao ( $db, $data );
 				$resp ["gridUpdate"] = false;
+				$gridInfoJson = json_decode ( $gridInfo );
+				if ($gridInfoJson->minuto < 10) {
+					$resp ["horario"] = $gridInfoJson->hora . ":0" . $gridInfoJson->minuto;
+				} else {
+					$resp ["horario"] = $gridInfoJson->hora . ":" . $gridInfoJson->minuto;
+				}
 			}
-			$this->query ( $db, "COMMIT" );
 		} else {
 			$this->updateInscricao ( $db, $data );
 		}

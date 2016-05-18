@@ -82,18 +82,17 @@ class UserApi extends MySQL_CRUD_API {
 				try {
 					$msg = "Um pedido para acessar a NorthBrasil foi feito com seu e-mail.\n\nA senha temporária é '$codigo'\n\nCaso não tenha feito essa solicitação por favor ignore esta mensagem.";
 					
-					// $message = new Message ();
-					// $message->setReplyTo ( "northapp@northbrasil.com.br" );
-					// $message->setSender ( "northapp@northbrasil.com.br" );
-					// $message->addTo ( $email );
+					$message = new Message ();
+					$message->setReplyTo ( "northapp@northbrasil.com.br" );
+					$message->setSender ( "northapp@northbrasil.com.br" );
+					$message->addTo ( $email );
 					
-					// $message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
+					$message->setSubject ( "Senha Temporária gerada para NorthBrasil" );
 					// $message->setTextBody ( $msg );
 					
-					// $message->setHtmlBody ( "<html><body>Um pedido para acessar a NorthBrasil foi feito com seu e-mail.<br><br>A senha temporária é '$codigo'<br><br>Caso não tenha feito essa solicitação por favor ignore esta mensagem.</body></html>" );
+					$message->setHtmlBody ( "<html><body>Um pedido para acessar a NorthBrasil foi feito com seu e-mail.<br><br>A senha temporária é '$codigo'<br><br>Caso não tenha feito essa solicitação por favor ignore esta mensagem.</body></html>" );
 					
-					// $message->send ();
-					syslog ( LOG_INFO, " " . $msg );
+					$message->send ();
 				} catch ( InvalidArgumentException $e ) {
 					syslog ( LOG_INFO, "ERRO " . $e );
 				}
