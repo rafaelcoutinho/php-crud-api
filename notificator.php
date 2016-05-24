@@ -7,6 +7,31 @@ use google\appengine\api\taskqueue\PushQueue;
 // Adjust to your timezone
 date_default_timezone_set ( 'America/Sao_Paulo' );
 class NotificatorAction extends MySQL_CRUD_API {
+	protected function getBody($type, $notification, $row, $db) {
+		if (strcmp ( $type, "resultados" ) == 0) {
+			$colocacao = $row['colocacao'];
+			$pontos_perdidos = $row['pontos_perdidos'];
+			$equipe = $row['equipe'];
+			$titulo = $row['titulo'];
+			return $equipe." ficou na posição ".$colocacao." com ".$pontos_perdidos." na etapa ".$titulo;
+				
+		}else{
+			return $notification->body;
+		}
+	}
+	protected function getTitle($type, $notification, $row, $db) {
+		if (strcmp ($type, "resultados" ) == 0) {
+			$colocacao = $row['colocacao'];
+			$pontos_perdidos = $row['pontos_perdidos'];
+			$equipe = $row['equipe'];
+			$titulo = $row['titulo'];
+			return $colocacao."o colocado com ".$pontos_perdidos." pontos";
+			
+		}else{
+			$notification->title;
+		}
+	
+	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
 			header ( 'Access-Control-Allow-Origin: *' );
@@ -51,7 +76,11 @@ class NotificatorAction extends MySQL_CRUD_API {
 				$result = $this->query ( $db, "select * from MsgDevice msg, Competidor t where msg.idUser=t.id_Trekker and t.id_Equipe=?", array (
 						$data->id_Equipe 
 				) );
-			} else {
+			} else if (strcmp ( $data->type, "resultados" ) == 0) {
+				$result = $this->query ( $db, "select msg.*,e.titulo, t.equipe, r.colocacao,r.pontos_perdidos from MsgDevice msg, Competidor t, Resultado r, Etapa e where msg.idUser=t.id_Trekker and t.id_Equipe=r.id_Equipe and e.id=r.id_Etapa and e.id=?", array (
+						$data->id_Etapa 
+				) );
+			}else {
 				$this->exitWith ( "Sem destinatarios conhecidos", 404, 2 );
 			}
 		} else {
@@ -63,12 +92,17 @@ class NotificatorAction extends MySQL_CRUD_API {
 			$gcmTargets = array ();
 			$apnTargets = array ();
 			while ( $row = $this->fetch_assoc ( $result ) ) {
-				syslog ( LOG_INFO, "Enviando para user id " . $row ["idUser"] . " em " . $row ["platform"] );
+				
+				$body =  $this->getBody( $data->type,$data->notification,$row,$db);
+				$title =  $this->getTitle( $data->type,$data->notification,$row,$db);
+				syslog ( LOG_INFO, "Enviando ".$data->type." para user id " . $row ["idUser"] . " em " . $row ["platform"] );
+				syslog ( LOG_INFO, $title);
+				syslog ( LOG_INFO, $body);
 				if (strcmp ( "android", $row ["platform"] ) == 0) {
 					$task = new PushTask ( '/task/GCMPush', [ 
-							'body' => $data->notification->body,
+							'body' =>$body,
 							'token' => $row ["token"],
-							'title' => $data->notification->title,
+							'title' => $title,
 							'image' => $data->notification->image,
 							'action' => $data->notification->action 
 					], [ 
@@ -78,9 +112,9 @@ class NotificatorAction extends MySQL_CRUD_API {
 					$gcmTargets [] = $task;
 				} else {
 					$task = new PushTask ( '/task/APNPush', [ 
-							'body' => $data->notification->body,
+							'body' => $body,
 							'token' => $row ["token"],
-							'title' => $data->notification->title,
+							'title' => $title,
 							'action' => $data->notification->action 
 					], [ 
 							'method' => 'POST' 

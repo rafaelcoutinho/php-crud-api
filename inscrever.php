@@ -23,8 +23,9 @@ class InscricaoApi extends MySQL_CRUD_API {
 					$this->exitWith ( "Lider já está com pagamento confirmadoe e não pode mudar de equipe.", 500, 662 );
 				} else {
 					syslog ( LOG_INFO, "Lider não possui inscrição paga em outra equipe." );
-					$result = $this->query ( $db, 'delete from Inscricao where id_Trekker=?', array (
-							$id_Lider 
+					$result = $this->query ( $db, 'delete from Inscricao where id_Trekker=? and id_Etapa=?', array (
+							$id_Lider,
+							$id_Etapa
 					) );
 				}
 			} else {
@@ -442,7 +443,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		
 		
 		
-		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>";
+		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foram cadastrados com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>";
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
 			
