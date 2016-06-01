@@ -9,28 +9,25 @@ date_default_timezone_set ( 'America/Sao_Paulo' );
 class NotificatorAction extends MySQL_CRUD_API {
 	protected function getBody($type, $notification, $row, $db) {
 		if (strcmp ( $type, "resultados" ) == 0) {
-			$colocacao = $row['colocacao'];
-			$pontos_perdidos = $row['pontos_perdidos'];
-			$equipe = $row['equipe'];
-			$titulo = $row['titulo'];
-			return $equipe." ficou na posição ".$colocacao." com ".$pontos_perdidos." na etapa ".$titulo;
-				
-		}else{
+			$colocacao = $row ['colocacao'];
+			$pontos_perdidos = $row ['pontos_perdidos'];
+			$equipe = $row ['equipe'];
+			$titulo = $row ['titulo'];
+			return $equipe . " ficou na posição " . $colocacao . " com " . $pontos_perdidos . " na etapa " . $titulo;
+		} else {
 			return $notification->body;
 		}
 	}
 	protected function getTitle($type, $notification, $row, $db) {
-		if (strcmp ($type, "resultados" ) == 0) {
-			$colocacao = $row['colocacao'];
-			$pontos_perdidos = $row['pontos_perdidos'];
-			$equipe = $row['equipe'];
-			$titulo = $row['titulo'];
-			return $colocacao."o colocado com ".$pontos_perdidos." pontos";
-			
-		}else{
-			$notification->title;
+		if (strcmp ( $type, "resultados" ) == 0) {
+			$colocacao = $row ['colocacao'];
+			$pontos_perdidos = $row ['pontos_perdidos'];
+			$equipe = $row ['equipe'];
+			$titulo = $row ['titulo'];
+			return $colocacao . "o colocado com " . $pontos_perdidos . " pontos";
+		} else {
+			return $notification->title;
 		}
-	
 	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
@@ -44,8 +41,30 @@ class NotificatorAction extends MySQL_CRUD_API {
 		$request = parse_url ( $_SERVER ['REQUEST_URI'], PHP_URL_PATH );
 		
 		$request_body = file_get_contents ( 'php://input' );
-		syslog ( LOG_INFO, "data " . $request_body );
+		syslog ( LOG_INFO, "data payload " . $request_body );
 		$data = json_decode ( $request_body );
+		if (! $data->type) {
+			if (! $_POST ["type"]) {
+				$this->exitWith ( "Missing parameters", 400 );
+			} else {
+				syslog ( LOG_INFO, "parametors " );
+				$data = array (
+						'type' => $_POST ["type"],
+						'id_Trekker' => $_POST ["id_Trekker"],
+						'id_Etapa' => $_POST ["id_Etapa"],
+						'id_Equipe' => $_POST ["id_Equipe"],
+						'to' => $_POST ["to"],
+						'notification' => array (
+								'body' => $_POST ["notification_body"],
+								'title' => $_POST ["notification_title"],
+								'image' => $_POST ["notification_image"],
+								'action' => $_POST ["notification_action"] 
+						) 
+				);
+				$data = json_encode ( $data );
+				$data = json_decode ( $data );
+			}
+		}
 		
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		$result = null;
@@ -80,7 +99,7 @@ class NotificatorAction extends MySQL_CRUD_API {
 				$result = $this->query ( $db, "select msg.*,e.titulo, t.equipe, r.colocacao,r.pontos_perdidos from MsgDevice msg, Competidor t, Resultado r, Etapa e where msg.idUser=t.id_Trekker and t.id_Equipe=r.id_Equipe and e.id=r.id_Etapa and e.id=?", array (
 						$data->id_Etapa 
 				) );
-			}else {
+			} else {
 				$this->exitWith ( "Sem destinatarios conhecidos", 404, 2 );
 			}
 		} else {
@@ -93,14 +112,14 @@ class NotificatorAction extends MySQL_CRUD_API {
 			$apnTargets = array ();
 			while ( $row = $this->fetch_assoc ( $result ) ) {
 				
-				$body =  $this->getBody( $data->type,$data->notification,$row,$db);
-				$title =  $this->getTitle( $data->type,$data->notification,$row,$db);
-				syslog ( LOG_INFO, "Enviando ".$data->type." para user id " . $row ["idUser"] . " em " . $row ["platform"] );
-				syslog ( LOG_INFO, $title);
-				syslog ( LOG_INFO, $body);
+				$body = $this->getBody ( $data->type, $data->notification, $row, $db );
+				$title = $this->getTitle ( $data->type, $data->notification, $row, $db );
+				syslog ( LOG_INFO, "Enviando " . $data->type . " para user id " . $row ["idUser"] . " em " . $row ["platform"] );
+				syslog ( LOG_INFO, $title );
+				syslog ( LOG_INFO, $body );
 				if (strcmp ( "android", $row ["platform"] ) == 0) {
 					$task = new PushTask ( '/task/GCMPush', [ 
-							'body' =>$body,
+							'body' => $body,
 							'token' => $row ["token"],
 							'title' => $title,
 							'image' => $data->notification->image,

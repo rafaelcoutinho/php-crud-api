@@ -1,4 +1,6 @@
 <?php
+use google\appengine\api\taskqueue\PushTask;
+use google\appengine\api\taskqueue\PushQueue;
 include 'gridCommons.php';
 class AdicionarAoGrid extends GridCommons {
 	public function executeCommand() {
@@ -21,8 +23,9 @@ class AdicionarAoGrid extends GridCommons {
 			$inicio_hora = $gridConfig ["inicio_hora"];
 			echo "Inicio as $inicio_hora $inicio_minuto <br><pre>";
 			
-			$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $idEtapa, $gridConfig, true );
-			
+			$gridData = $this->getEquipesNoGrid ( $db, $idEtapa, $gridConfig, true );
+			$deslocamentoEmMinutos = $gridData ["minutes_shift"];
+			echo " Numero " . $gridData ["number"] . "\n";
 			echo " totaldeslocamento $deslocamentoEmMinutos\n";
 			$deslocamentoEmMinutos += $inicio_minuto;
 			$addHour = ( int ) ($deslocamentoEmMinutos / 60);
@@ -52,17 +55,22 @@ class AdicionarAoGrid extends GridCommons {
 		}
 		
 		$resp ["gridUpdate"] = false;
+		$defaultQueue = new PushQueue ();
+		$tasksDefault = array ();
+		
 		if ($data->paga == 1) {
 			
 			$equipe = $this->getEquipe ( $db, $data->id_Equipe );
 			$resp ["id_Equipe"] = $equipe ["id_Equipe"];
 			$resp ["id_Trekker"] = $data->id_Trekker;
 			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $data->id_Equipe );
+			$etapa = $this->getEntityJson ( $db, "select * from Etapa where id=?", array (
+					$data->id_Etapa 
+			), true );
 			if ($gridInfo == null) {
 				$this->query ( $db, "START TRANSACTION" );
 				$this->query ( $db, "BEGIN" );
 				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
-				$dataEtapa = $this->getDataEtapa ( $db, $data->id_Etapa );
 				
 				// parte hc
 				$gridConfig = $this->getGridConfig ( $db, $equipe ["id_Categoria"] );
@@ -94,6 +102,18 @@ class AdicionarAoGrid extends GridCommons {
 				}
 				
 				$this->query ( $db, "COMMIT" );
+				
+				// notifica equipe
+				$tasksDefault [] = new PushTask ( '/notification', [ 
+						'notification_title' => 'Equipe confirmada',
+						'type' => 'equipe',
+						'id_Equipe' => $equipe ["id_Equipe"],
+						'notification_body' => 'Sua equipe está no grid, às ' . $resp ["horario"],
+						'notification_image' => $etapa ["imgSmall"],
+						'notification_action' => 'grid' 
+				], [ 
+						'method' => 'POST' 
+				] );
 			} else {
 				syslog ( LOG_INFO, "Equipe já estava no grid" );
 				
@@ -106,11 +126,36 @@ class AdicionarAoGrid extends GridCommons {
 					$resp ["horario"] = $gridInfoJson->hora . ":" . $gridInfoJson->minuto;
 				}
 			}
+			$milliseconds = (round ( microtime ( true ) * 1000 ));
+			$this->associaTrekkerEquipe ( $db, $data->id_Trekker, $data->id_Equipe, $milliseconds );
+			syslog ( LOG_INFO, "Enviando email para " . $data->id_Etapa . ":" . $data->id_Trekker );
+			$task = new PushTask ( '/task/mailer', [ 
+					'id_Etapa' => $data->id_Etapa,
+					'id_Trekker' => $data->id_Trekker,
+					'action' => 'CONFIRM_INSCRIPTION' 
+			], [ 
+					'method' => 'POST' 
+			] );
+			$queueMailer = new PushQueue ( "mailerQueue" );
+			$queueMailer->addTasks ( [ 
+					$task 
+			] );
+			
+			$tasksDefault [] = new PushTask ( '/notification', [ 
+					'type' => 'competidor',
+					'id_Trekker' => $data->id_Trekker,
+					'notification_title' => 'Inscrição confirmada',
+					'notification_body' => 'Seu pagamento foi confirmado para a etapa ' . $etapa ["titulo"],
+					'notification_image' => $etapa ["imgSmall"],
+					'notification_action' => 'grid' 
+			], [ 
+					'method' => 'POST' 
+			] );
+			$defaultQueue->addTasks ( $tasksDefault );
 		} else {
+			syslog ( LOG_INFO, "Setou false no pagametno" );
 			$this->updateInscricao ( $db, $data );
 		}
-		$milliseconds = (round ( microtime ( true ) * 1000 ));
-		$this->associaTrekkerEquipe ( $db, $data->id_Trekker, $data->id_Equipe, $milliseconds );
 		
 		$this->startOutput ( $callback );
 		echo json_encode ( $resp );

@@ -1,9 +1,8 @@
 <?php
 use \google\appengine\api\mail\Message;
 
-include 'DBCrud.php';
-include 'connInfo.php';
-class TesteEmail extends MySQL_CRUD_API {
+include 'gridCommons.php';
+class TesteEmail extends GridCommons {
 	public function executeCommand() {
 		date_default_timezone_set ( 'America/Sao_Paulo' );
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
@@ -17,18 +16,37 @@ class TesteEmail extends MySQL_CRUD_API {
 		$request = parse_url ( $_SERVER ['REQUEST_URI'], PHP_URL_PATH );
 		
 		$request_body = file_get_contents ( 'php://input' );
-		$data = json_decode ( $request_body );
+		syslog ( LOG_INFO, " post params" . $request_body );
+		syslog ( LOG_INFO, " post params" . $_POST ["id_Trekker"] );
+		$id_Trekker = $_POST ["id_Trekker"];
+		$id_Etapa = $_POST ["id_Etapa"];
+		
+		if (! $id_Trekker || ! $id_Etapa) {
+			syslog ( LOG_INFO, "Falta parametros id_Trekker=" . $id_Trekker );
+			syslog ( LOG_INFO, "Falta parametros id_Etapa=" . $id_Etapa );
+			$this->exitWith ( "Missing parameters", 400 );
+			return;
+		}
+		
 		$db = $this->connectDatabase ( $this->configArray ["hostname"], $this->configArray ["username"], $this->configArray ["password"], $this->configArray ["database"], $this->configArray ["port"], $this->configArray ["socket"], $this->configArray ["charset"] );
 		$competidor = $this->getEntityJson ( $db, "select * from InscricaoFull where id_Trekker=? and id_Etapa=?", array (
-				3249,
-				$data->id_Etapa 
+				$id_Trekker,
+				$id_Etapa 
 		), true );
 		$gridInfo = $this->getEntityJson ( $db, "select * from GridFull where id_Equipe=? and id_Etapa=?", array (
 				$competidor ["id_Equipe"],
-				$data->id_Etapa 
+				$id_Etapa 
+		), true );
+		$gridConfig = $this->getGridConfig ( $db, $gridInfo ["id_Config"] );
+		$gridData = $this->getEntityJson ( $db, "select count(*) as numero from Grid where id_Etapa=? and id_Config=? and (hora<? or hora=? and minuto<?)", array (
+				$id_Etapa,
+				$gridConfig ["id"],
+				$gridInfo ["hora"],
+				$gridInfo ["hora"],
+				$gridInfo ["minuto"] 
 		), true );
 		$etapa = $this->getEntityJson ( $db, "select e.*,l.nome,l.endereco from Etapa e, Local l where e.id=? and e.id_Local=l.id", array (
-				$data->id_Etapa 
+				$id_Etapa 
 		), true );
 		$horario = $gridInfo ["hora"] . ":";
 		if ($gridInfo ["minuto"] < 10) {
@@ -75,22 +93,25 @@ class TesteEmail extends MySQL_CRUD_API {
     </div>
   </div>
 </div>';
-		
-
 		$resp = array ();
-		$mailMsg = "<html><body>Olá " . $competidor ['nome'] . "! <br>Recebemos a informação de pagamento e agora a sua equipe, " . $competidor ['nome_Equipe'] . ", já está confirmada para a " . $etapa ['titulo'] . ".<br>Guarde as informações:<br><ul><li>Número da sua equipe é <NUM_EQUIPE></li><li>Horário de largada da equipe é às " . $horario . "</li></ul><br>Lembrando que a Prova Social (arrecadação de doações) desta etapa é " . $etapa ['provaSocial'] . "<br>  Toda doação será revertida para entidades sociais. <br><br>Confira também outras informações do evento:<br>" . $etapa ['extraInfoEmail'] . " " . $googleNowReservation . "</body></html>";
-		syslog ( LOG_INFO, $mailMsg );
+		$resp ["numeracao"] = $gridConfig ["numeracao"];
+		$resp ["total"] = $gridData ["numero"];
+		
+		$numeroEquipe = $gridConfig ["numeracao"] + $gridData ["numero"];
+		
+		$mailMsg = "<html><body>Olá " . $competidor ['nome'] . "! <br>Recebemos a informação de pagamento e agora a sua equipe, " . $competidor ['nome_Equipe'] . ", já está confirmada para a " . $etapa ['titulo'] . ".<br>Guarde as informações:<br><ul><li>Número da sua equipe é " . $numeroEquipe . "</li><li>Horário de largada da equipe é às " . $horario . "</li></ul><br>Lembrando que a Prova Social (arrecadação de doações) desta etapa é " . $etapa ['provaSocial'] . "<br>  Toda doação será revertida para entidades sociais. <br><br>Confira também outras informações do evento:<br>" . $etapa ['extraInfoEmail'] . " " . $googleNowReservation . "</body></html>";
+		
 		try {
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
 			$message->setSender ( "northapp@northbrasil.com.br" );
-// 			$message->setSender ( "rafael.coutinho@gmail.com" );
-// 			$message->addTo ( "atendimento@northbrasil.com.br" );
-			$message->addTo ( "schema.whitelisting%2Bsample@gmail.com" );
 			
-			$message->addTo ( "rafael.coutinho@gmail.com" );
+			// $message->addTo ( "schema.whitelisting+sample@gmail.com" );
+			$message->addTo ( "atendimento@northbrasil.com.br" );
+			
+			$message->addTo ( $competidor ["email"] );
 			$message->setSubject ( "Confirmação de pagamento" );
-			//
+			syslog ( LOG_INFO, $competidor ["email"] );
 			$message->setHtmlBody ( $mailMsg );
 			
 			$message->send ();

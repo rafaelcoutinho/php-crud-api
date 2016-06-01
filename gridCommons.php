@@ -40,11 +40,11 @@ class GridCommons extends MySQL_CRUD_API {
 		$result = $this->query ( $db, 'update Trekker_Equipe set end=(UNIX_TIMESTAMP()*1000) where id_Trekker=' . $id_Trekker . ' and id_Equipe<>' . $id_Equipe . ' and end=0' );
 		$hasEntry = $this->affected_rows ( $db, $result );
 		
-		syslog ( LOG_INFO, "Remocao de equipe retornou " . $hasEntry );
+		
 		$params = array (
-				mysqli_real_escape_string ( $db, $id_Trekker ),
-				mysqli_real_escape_string ( $db, $id_Equipe ),
-				mysqli_real_escape_string ( $db, $milliseconds ) 
+				$id_Trekker,
+				$id_Equipe,
+				$milliseconds 
 		);
 		$resultId = $this->query ( $db, 'INSERT INTO Trekker_Equipe (id_Trekker,id_Equipe,start) VALUES (?,?,?)', $params );
 		if ($resultId == 1) {
@@ -146,6 +146,7 @@ class GridCommons extends MySQL_CRUD_API {
 	}
 	protected function getEquipesNoGrid($db, $idEtapa, $gridConfig, $debug) {
 		$sql = 'SELECT * from Grid where id_Etapa=? and id_Config=? order by hora,minuto';
+		$resp = array ();
 		$params = array ();
 		$params [] = $idEtapa;
 		$params [] = $gridConfig ["id"];
@@ -162,15 +163,18 @@ class GridCommons extends MySQL_CRUD_API {
 			syslog ( LOG_INFO, "Grid Info inicio:  $inicio_hora:$inicio_minuto Quota: " . $quota1 . " Intervalo A:" . $intervalo1 . " Intervalo B: " . $intervalo2 );
 		}
 		$total = 0;
+		
 		if ($result) {
+			
 			while ( $row = $this->fetch_assoc ( $result ) ) {
 				
 				$cHora = $row ["hora"];
 				$cMinuto = $row ["minuto"];
 				
 				$diffMinutes = $this->getDiffMinutes ( $inicio_hora, $inicio_minuto, $cHora, $cMinuto );
+				
 				if ($debug == true) {
-					$numeroEquipe = $gridConfig ["numeracao"]+$total;
+					
 					echo "$numeroEquipe: diff = $diffMinutes - $deslocamentoEmMinutos\n";
 				}
 				syslog ( LOG_INFO, "$total: diff = $diffMinutes - $deslocamentoEmMinutos" );
@@ -204,12 +208,15 @@ class GridCommons extends MySQL_CRUD_API {
 						$deslocamentoEmMinutos += $gridConfig ["intervalo2"];
 					}
 				}
-				$total++;
+				$total ++;
 			}
 		} else {
 			syslog ( LOG_INFO, "Nenhuma equipe no grid" );
 		}
-		return $deslocamentoEmMinutos;
+		$numeroEquipe = $gridConfig ["numeracao"] + $total;
+		$resp ["minutes_shift"] = $deslocamentoEmMinutos;
+		$resp ["number"] = $numeroEquipe;
+		return $resp;
 	}
 	protected function insertEquipeGrid($db, $idEquipe, $idEtapa, $hora, $minuto, $configId) {
 		$sql = 'insert into Grid (id_Equipe,id_Etapa,hora,minuto,id_Config,type) values (?,?,?,?,?,?)';
