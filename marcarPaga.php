@@ -81,7 +81,7 @@ class AdicionarAoGrid extends GridCommons {
 				$inicio_hora = $gridConfig ["inicio_hora"];
 				syslog ( LOG_INFO, " $inicio_hora $inicio_minuto" );
 				
-				$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $data->id_Etapa, $gridConfig );
+				$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $data->id_Etapa, $gridConfig )["minutes_shift"];
 				
 				syslog ( LOG_INFO, " totaldeslocamento $deslocamentoEmMinutos" );
 				$deslocamentoEmMinutos += $inicio_minuto;
