@@ -156,27 +156,30 @@ class GridCommons extends MySQL_CRUD_API {
 		$quota1 = $gridConfig ["quota_intervalo1"];
 		$intervalo1 = $gridConfig ["intervalo1"];
 		$intervalo2 = $gridConfig ["intervalo2"];
-		syslog ( LOG_INFO, "Grid Info inicio:  $inicio_hora:$inicio_minuto Quota: " . $quota1 . " Intervalo A:" . $intervalo1 . " Intervalo B: " . $intervalo2 );
 		if ($debug == true) {
 			echo "Grid Info inicio:  $inicio_hora:$inicio_minuto Quota: " . $quota1 . " Intervalo A:" . $intervalo1 . " Intervalo B: " . $intervalo2 . "\n";
+		} else {
+			syslog ( LOG_INFO, "Grid Info inicio:  $inicio_hora:$inicio_minuto Quota: " . $quota1 . " Intervalo A:" . $intervalo1 . " Intervalo B: " . $intervalo2 );
 		}
 		$total = 0;
 		if ($result) {
 			while ( $row = $this->fetch_assoc ( $result ) ) {
-				$total ++;
+				
 				$cHora = $row ["hora"];
 				$cMinuto = $row ["minuto"];
 				
 				$diffMinutes = $this->getDiffMinutes ( $inicio_hora, $inicio_minuto, $cHora, $cMinuto );
 				if ($debug == true) {
-					echo "$total: diff = $diffMinutes - $deslocamentoEmMinutos\n";
+					$numeroEquipe = $gridConfig ["numeracao"]+$total;
+					echo "$numeroEquipe: diff = $diffMinutes - $deslocamentoEmMinutos\n";
 				}
 				syslog ( LOG_INFO, "$total: diff = $diffMinutes - $deslocamentoEmMinutos" );
 				if ($diffMinutes < $deslocamentoEmMinutos) {
 					if ($debug == true) {
-						echo "Não é o horario certo... \n";
+						echo "\t**Não é o horario certo... \n";
+					} else {
+						syslog ( LOG_INFO, "Não é o horario certo... " );
 					}
-					syslog ( LOG_INFO, "Não é o horario certo... " );
 					$total --;
 				} else if ($diffMinutes != $deslocamentoEmMinutos) {
 					if ($debug == true) {
@@ -185,20 +188,23 @@ class GridCommons extends MySQL_CRUD_API {
 					syslog ( LOG_INFO, "Há um espaco aqui!" );
 					break;
 				} else {
-					if (!$quota1 || $total < $quota1) {
+					if (! $quota1 || $total < $quota1) {
 						if ($debug == true) {
-							echo "dentro quota_intervalo1\n";
+							echo "\tdentro quota_intervalo1\n";
+						} else {
+							syslog ( LOG_INFO, "dentro quota_intervalo1" );
 						}
-						syslog ( LOG_INFO, "dentro quota_intervalo1" );
 						$deslocamentoEmMinutos += $gridConfig ["intervalo1"];
 					} else {
 						if ($debug == true) {
-							echo "dentro quota_intervalo2\n";
+							echo "\tdentro quota_intervalo2\n";
+						} else {
+							syslog ( LOG_INFO, "dentro quota_intervalo2" );
 						}
-						syslog ( LOG_INFO, "dentro quota_intervalo2" );
 						$deslocamentoEmMinutos += $gridConfig ["intervalo2"];
 					}
 				}
+				$total++;
 			}
 		} else {
 			syslog ( LOG_INFO, "Nenhuma equipe no grid" );

@@ -50,7 +50,7 @@ class AppApi extends MySQL_CRUD_API {
 			} else {
 				$idEtapa = $paths [1];
 				if ($l == 2) {
-					$resp = $this->getEntity ( $db, "select * from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
+					$resp = $this->getEntity ( $db, "select e.*,l.nome from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
 							$idEtapa 
 					) );
 				} else {
@@ -137,40 +137,99 @@ class AppApi extends MySQL_CRUD_API {
 			) );
 		} else if (strcmp ( $paths [0], "InscricaoCompetidor" ) == 0) {
 			$idEtapa = $paths [1];
-			$email = strtolower ( $paths [2] );
-			$sql = "SELECT 
-c.id AS id,c.id AS id_Trekker, c.nome AS nome,c.fbId AS fbId,
-c.id_Equipe AS id_Equipe,
-c.equipe AS equipe,
-c.categoria AS categoria,ins.nome_Equipe AS ins_EquipeNome,ins.id_Equipe AS ins_EquipeId, ins.categoria AS ins_CategoriaNome, ins.id_Categoria AS ins_CategoriaId, 
-ins.id_Etapa AS id_Etapa, ins.paga AS paga, ins.data AS ins_Data 
-FROM 
-( northdb.Competidor c LEFT JOIN
- (select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from northdb.InscricaoFull where id_Etapa=? ) ins ON ins.id_Trekker = c.id_Trekker) where c.email=?";
-			$resp = $this->getEntity ( $db, $sql, array (
-					$idEtapa,
-					$email 
-			), true );
+			$idTrekker = $paths [2];
+			
+			$email = strtolower ( $_GET ["email"] );
+			if ($idTrekker != NULL) {
+				$sql = "SELECT
+					c.id AS id, c.id AS id_Trekker, c.nome AS nome,c.fbId AS fbId,
+					c.id_Equipe AS id_Equipe, c.equipe AS equipe,
+					c.categoria AS categoria,
+					ins.nome_Equipe AS ins_EquipeNome, ins.id_Equipe AS ins_EquipeId, ins.categoria AS ins_CategoriaNome, ins.id_Categoria AS ins_CategoriaId,
+					ins.id_Etapa AS id_Etapa, ins.paga AS paga, ins.data AS ins_Data
+					FROM
+					( northdb.Competidor c LEFT JOIN
+ 					(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from northdb.InscricaoFull where id_Etapa=? ) ins ON ins.id_Trekker = c.id_Trekker) where c.id=?";
+				$resp = $this->getEntity ( $db, $sql, array (
+						$idEtapa,
+						$idTrekker 
+				), true );
+			} else {
+				if ($email == null || strlen ( $email ) == 0) {
+					$this->exitWith ( "Se não há identificacao, é necessário email", 500, 555 );
+				}
+				$sql = "SELECT 
+					c.id AS id, c.id AS id_Trekker, c.nome AS nome,c.fbId AS fbId,
+					c.id_Equipe AS id_Equipe, c.equipe AS equipe,
+					c.categoria AS categoria, 
+					ins.nome_Equipe AS ins_EquipeNome, ins.id_Equipe AS ins_EquipeId, ins.categoria AS ins_CategoriaNome, ins.id_Categoria AS ins_CategoriaId, 
+					ins.id_Etapa AS id_Etapa, ins.paga AS paga, ins.data AS ins_Data 
+					FROM 
+					( northdb.Competidor c LEFT JOIN
+ 					(select id_Trekker, nome_Equipe, id_Equipe, categoria,id_Categoria,id_Etapa,paga, data from northdb.InscricaoFull where id_Etapa=? ) ins ON ins.id_Trekker = c.id_Trekker) where c.email=?";
+				$resp = $this->getEntity ( $db, $sql, array (
+						$idEtapa,
+						$email 
+				), true );
+			}
 		} else if (strcmp ( $paths [0], "Ranking" ) == 0) {
 			
-			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe";
-			$resp = $this->listTable ( $db, $sql, array () );
+			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe  order by id_categoria, pontos  desc";
+			$resp = $this->listTableJson( $db, $sql, array () );
+			$respHash = array();
+			$arrayRankingTies = array(); 
+		 	foreach($resp as $value)
+         	{
+         		$respHash[$value["id_Equipe"]]=$value;	
+         		$pontos = $value["pontos"];
+         		$categoria = $value["id_Categoria"];
+         		if($arrayRankingTies[$categoria]==null){
+         			$arrayRankingTies[$categoria]=array();
+         		}
+         		if($arrayRankingTies[$categoria][$pontos]==null){
+         			$arrayRankingTies[$categoria][$pontos]=array();
+         		}
+         		$arrayRankingTies[$categoria][$pontos][]=$value;
+         	}
+         	foreach($arrayRankingTies as $categoria => $pontuacoes){
+         		//echo "cat ".$categoria."\n";
+         		foreach($pontuacoes as $pts => $tieds){         			
+         			if(sizeof($tieds)>1){
+         				//echo " Empate ".$pts."\n";
+         				foreach($tieds as $equipe){
+         					//echo "   ".$equipe["nome"]."\n";
+         					$sql = "select colocacao, count(colocacao) as vezes, id_Equipe from Resultado where id_Equipe=? group by colocacao order by colocacao";
+         					$colocacoes = $this->listTableJson( $db, $sql, array ($equipe["id_Equipe"]) );
+         					unset($colocacoes["id_Equipe"]);
+         					$respHash[$equipe["id_Equipe"]]["col"]=$colocacoes;         					
+         				}
+         				
+         				
+         			}
+         		}
+         		
+         	}
+         	$resp=json_encode(array_values($respHash));
+         		
+         	
+			
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			
 			if (strcmp ( $_SERVER ['REQUEST_METHOD'], "POST" ) == 0) {
 				$idEtapa = $paths [1];
 				$sql = "update Etapa set active=(0)";
-				$result = $this->query($db,$sql,array());
+				$result = $this->query ( $db, $sql, array () );
 				$sql = "update Etapa set active=(1) where id=?";
-				$result = $this->query($db,$sql,array($idEtapa));
+				$result = $this->query ( $db, $sql, array (
+						$idEtapa 
+				) );
 				$affected = $this->affected_rows ( $db, $result );
-				if($affected==0){
-					$this->exitWith ( "Falhou ao setar como ativa etapa id ".$idEtapa);
+				if ($affected == 0) {
+					$this->exitWith ( "Falhou ao setar como ativa etapa id " . $idEtapa );
 				}
-				
 			}
 			$sql = "select * from Etapa where active=(1)";
-			$resp = $this->getEntity ( $db, $sql, array () );
+			$resp = $this->getEntity ( $db, $sql, array (),true );
 		} else if (strcmp ( $paths [0], "Msg" ) == 0) {
 			$userId = $paths [1];
 			$request_body = file_get_contents ( 'php://input' );
@@ -181,7 +240,7 @@ FROM
 			$resp = array ();
 			if (strcmp ( $data->action, "registergcm" ) == 0) {
 				$now = (round ( microtime ( true ) * 1000 ));
-				$sql = "delete MsgDevice where token=?";
+				$sql = "delete from MsgDevice where token=?";
 				$this->query ( $db, $sql, array (
 						$data->d 
 				) );

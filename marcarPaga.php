@@ -19,11 +19,11 @@ class AdicionarAoGrid extends GridCommons {
 			$gridConfig = $this->getGridConfig ( $db, $idCategoria );
 			$inicio_minuto = $gridConfig ["inicio_minuto"];
 			$inicio_hora = $gridConfig ["inicio_hora"];
-			echo "Inicio às $inicio_hora $inicio_minuto \n";
+			echo "Inicio as $inicio_hora $inicio_minuto <br><pre>";
 			
 			$deslocamentoEmMinutos = $this->getEquipesNoGrid ( $db, $idEtapa, $gridConfig, true );
 			
-			echo " totaldeslocamento $deslocamentoEmMinutos";
+			echo " totaldeslocamento $deslocamentoEmMinutos\n";
 			$deslocamentoEmMinutos += $inicio_minuto;
 			$addHour = ( int ) ($deslocamentoEmMinutos / 60);
 			
@@ -31,7 +31,7 @@ class AdicionarAoGrid extends GridCommons {
 			$hora += $addHour;
 			
 			$minutoToGo = ($deslocamentoEmMinutos % 60);
-			echo "Largada às $hora:$minutoToGo";
+			echo "Largada as $hora: $minutoToGo";
 			return;
 		}
 		
@@ -53,16 +53,16 @@ class AdicionarAoGrid extends GridCommons {
 		
 		$resp ["gridUpdate"] = false;
 		if ($data->paga == 1) {
-			
+			$this->query ( $db, "START TRANSACTION" );
+			$this->query ( $db, "BEGIN" );
 			$equipe = $this->getEquipe ( $db, $data->id_Equipe );
-			
+			$resp ["id_Equipe"] = $equipe ["id_Equipe"];
+			$resp ["id_Trekker"] =$data->id_Trekker;
 			$gridInfo = $this->getGridInfo ( $db, $data->id_Etapa, $data->id_Equipe );
 			if ($gridInfo == null) {
 				
 				syslog ( LOG_INFO, "Equipe deve ser incluida no grid" );
 				$dataEtapa = $this->getDataEtapa ( $db, $data->id_Etapa );
-				
-				syslog ( LOG_INFO, "data etapa $dataEtapa" );
 				
 				// parte hc
 				$gridConfig = $this->getGridConfig ( $db, $equipe ["id_Categoria"] );
@@ -87,12 +87,16 @@ class AdicionarAoGrid extends GridCommons {
 				$this->insertEquipeGrid ( $db, $equipe ["id_Equipe"], $data->id_Etapa, $hora, $minutoToGo, $gridConfig ["id"] );
 				$this->updateInscricao ( $db, $data );
 				$resp ["gridUpdate"] = true;
+				$resp ["horario"] = $hora . ":" . $minutoToGo;
+				
+				
 			} else {
 				syslog ( LOG_INFO, "Equipe já estava no grid" );
 				
 				$this->updateInscricao ( $db, $data );
 				$resp ["gridUpdate"] = false;
 			}
+			$this->query ( $db, "COMMIT" );
 		} else {
 			$this->updateInscricao ( $db, $data );
 		}

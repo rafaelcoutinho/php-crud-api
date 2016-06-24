@@ -143,8 +143,9 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$result = $this->query ( $db, 'INSERT INTO Inscricao (id_Trekker,id_Equipe,id_Etapa,data,id_Lider) VALUES (?,?,?,?,?)', $params );
 		syslog ( LOG_INFO, "createInscricao  " . $result );
 		$perror = $this->getError ( $db );
-		syslog ( LOG_INFO, "error? '" . $perror . "'" );
+		
 		if ($perror) {
+			syslog ( LOG_INFO, "error? '" . $perror . "'" );
 			$this->query ( $db, "ROLLBACK" );
 			$this->exitWith ( 'Erro inserindo inscrição ' . $perror, 500, 199 );
 		}
@@ -278,8 +279,11 @@ class InscricaoApi extends MySQL_CRUD_API {
 		
 		$this->validateInscricao ( $db, $idEquipe, $data->etapa->id, $idLider, $data->integrantes, $data->removidos );
 		
-		// $this->associaTrekkerEquipe($db,$idLider,$idEquipe,$milliseconds);
-		$this->createInscricao ( $db, $idLider, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
+		if (strcmp ( $data->lider->paga, "1" ) == 0) {
+			syslog ( LOG_INFO, "Líder já está com inscrição confirmada" );
+		} else {
+			$this->createInscricao ( $db, $idLider, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
+		}
 		
 		syslog ( LOG_INFO, "Há " . count ( $data->integrantes ) . "  integrantes " );
 		$integrantes = array ();
@@ -288,14 +292,18 @@ class InscricaoApi extends MySQL_CRUD_API {
 			$integrante = $data->integrantes [$i];
 			
 			$idIntegrante = $integrante->id_Trekker;
-			
-			if (! $idIntegrante) {
-				$idIntegrante = $this->saveTrekker ( $db, $integrante, "PASSIVE" );
+			if (strcmp ( $integrante->paga, "1" ) == 0) {
+				syslog ( LOG_INFO, "$integrante->nome já está com inscrição confirmada" );
+			} else {
+				if (! $idIntegrante) {
+					$idIntegrante = $this->saveTrekker ( $db, $integrante, "PASSIVE" );
+				}
+				
+				$this->createInscricao ( $db, $idIntegrante, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
 			}
-			
-			$this->createInscricao ( $db, $idIntegrante, $idEquipe, $data->etapa->id, $milliseconds, $idLider );
 			$integrantes [] = array (
-					'id_Trekker' => $idIntegrante 
+					'id_Trekker' => $idIntegrante,
+					'paga' => $integrante->paga 
 			);
 		}
 		
@@ -316,18 +324,62 @@ class InscricaoApi extends MySQL_CRUD_API {
 		$equipeInfo = json_decode ( $this->getEntity ( $db, "select * from Equipe where id=?", array (
 				$idEquipe 
 		), true ) );
-		$etapaInfo = json_decode ( $this->getEntity ( $db, "select e.*, l.nome as local from Etapa e, Local l where e.id=? and e.id_Local=l.id", array (
+		$etapaInfo = json_decode ( $this->getEntity ( $db, "select e.*, l.nome as local, l.endereco from Etapa e, Local l where e.id=? and e.id_Local=l.id", array (
 				$data->etapa->id 
 		), true ) );
 		date_default_timezone_set ( 'America/Sao_Paulo' );
 		$liderInfo = $this->sendConfEmailLider ( $db, $idLider, $equipeInfo, $etapaInfo );
 		for($i = 0; $i < count ( $integrantes ); $i ++) {
-			$this->sendConfEmailIntegrantes ( $db, $data->integrantes [$i]->id_Trekker, $equipeInfo, $etapaInfo, $liderInfo );
+			if (strcmp ( $data->integrantes [$i]->paga, "1" ) == 0) {
+			} else {
+				$this->sendConfEmailIntegrantes ( $db, $data->integrantes [$i]->id_Trekker, $equipeInfo, $etapaInfo, $liderInfo );
+			}
 		}
 		$this->startOutput ( $callback );
 		
 		echo json_encode ( $inscricao );
 		$this->endOutput ( null );
+	}
+	protected function createGoogleNowCard($number, $etapaNome, $nomeCompetidor, $etapaId, $data, $locationName, $locationAddress, $locationCity, $etapaImg) {
+		$dateEtapa = new DateTime ();
+		$dateNowStr = $dateEtapa->format ( 'Y-m-d\TH:i:sP' );
+		$dateEtapa->setTimestamp ( $data / 1000 );
+		$dateEtapaStr = $dateEtapa->format ( 'Y-m-d\TH:i:sP' );
+		$txtMkpGoogleNow = '<script type="application/ld+json">';
+		$txtMkpGoogleNow .= '{';
+		$txtMkpGoogleNow .= '			"@context": "http://schema.org",';
+		$txtMkpGoogleNow .= '			"@type": "EventReservation",';
+		$txtMkpGoogleNow .= '			"reservationNumber": "' . $number . '",';
+		$txtMkpGoogleNow .= '			"reservationStatus": "http://schema.org/Confirmed",';
+		$txtMkpGoogleNow .= '			"underName": {';
+		$txtMkpGoogleNow .= '			"@type": "Person",';
+		$txtMkpGoogleNow .= '			"name": "' . $nomeCompetidor . '"';
+		$txtMkpGoogleNow .= '			},';
+		$txtMkpGoogleNow .= '			"modifyReservationUrl":"http://app.northbrasil.com.br/open/index.html#/' . $etapaId . '",';
+		$txtMkpGoogleNow .= '			"modifiedTime": "' . $dateNowStr . '",';
+		
+		$txtMkpGoogleNow .= '			"reservationFor": {';
+		$txtMkpGoogleNow .= '			"@type": "Event",';
+		$txtMkpGoogleNow .= '			"name": "' . $etapaNome . '",';
+		$txtMkpGoogleNow .= '			"startDate": "' . $dateEtapaStr . '",';
+		$txtMkpGoogleNow .= '			"image": "' . $etapaImg . '",';
+		$txtMkpGoogleNow .= '			"location": {';
+		$txtMkpGoogleNow .= '			"@type": "Place",';
+		$txtMkpGoogleNow .= '			"name": "' . $locationName . '",';
+		$txtMkpGoogleNow .= '			"address": {';
+		$txtMkpGoogleNow .= '			"@type": "PostalAddress",';
+		$txtMkpGoogleNow .= '			"streetAddress": "' . $locationAddress . '",';
+		$txtMkpGoogleNow .= '			"addressLocality": "' . $locationCity . '",';
+		$txtMkpGoogleNow .= '			"addressRegion": "SP",';
+		// $txtMkpGoogleNow .= ' "postalCode": "94107",';
+		$txtMkpGoogleNow .= '			"addressCountry": "BR"';
+		$txtMkpGoogleNow .= '			}';
+		$txtMkpGoogleNow .= '			}';
+		$txtMkpGoogleNow .= '			}';
+		$txtMkpGoogleNow .= '		}';
+		$txtMkpGoogleNow .= '		</script>';
+		
+		return $txtMkpGoogleNow;
 	}
 	protected function sendConfEmailLider($db, $idLider, $equipeInfo, $etapaInfo) {
 		$liderInfo = $this->getEntity ( $db, "select * from Trekker where id=?", array (
@@ -336,20 +388,33 @@ class InscricaoApi extends MySQL_CRUD_API {
 		if (! $liderInfo) {
 			syslog ( LOG_INFO, "erro carregando lider" );
 		}
-		$liderInfo = json_decode ( $liderInfo );
-		
-		$msgText = "ENDURO A PÉ NORTHBRASIL\n" . $etapaInfo->titulo . "\nCOPA NORTH 2016\n\nParabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " \n\n"; // TODO colocar data
-		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
+			
+			$liderInfo = json_decode ( $liderInfo );
+			
+			$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
+			$msgText .= $this->getDefText ( $etapaInfo );
+			
+			// syslog ( LOG_INFO, "params " . $idLider . $equipeInfo->id );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->titulo );
+			// syslog ( LOG_INFO, "params " . $liderInfo->nome );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->id );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->data );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->local );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->endereco );
+			// syslog ( LOG_INFO, "params " . $etapaInfo->imgBig );
+			
+			$msgText .= $this->createGoogleNowCard ( $idLider . $equipeInfo->id, $etapaInfo->titulo, $liderInfo->nome, $etapaInfo->id, $etapaInfo->data, $etapaInfo->local, $etapaInfo->endereco, "Itu", $etapaInfo->imgBig );
+			
 			$message = new Message ();
 			$message->setReplyTo ( "northapp@northbrasil.com.br" );
-			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
+			$message->setSender ( "northapp@northbrasil.com.br" );
 			$message->addTo ( $liderInfo->email );
 			
 			$message->setSubject ( "Inscrição na CopaNorth" );
-			$message->setTextBody ( $msgText );
+			// $message->setTextBody ( $msgText );
 			
-			// $message->setHtmlBody ();
+			$message->setHtmlBody ( $msgText );
 			
 			$message->send ();
 		} catch ( Exception $e ) {
@@ -372,57 +437,61 @@ class InscricaoApi extends MySQL_CRUD_API {
 		}
 		
 		$integranteInfo = json_decode ( $integranteInfo );
-		$msgText = "ENDURO A PÉ NORTHBRASIL\n" . $etapaInfo->titulo . "\nCOPA NORTH 2016\n\nParabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " \n\n"; // TODO colocar data
+		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
-			$message = new Message ();
-			$message->setReplyTo ( "northapp@northbrasil.com.br" );
-			$message->setSender ( "inscricao@cumeqetrekking.appspotmail.com" );
-			$message->addTo ( $integranteInfo->email );
-			
-			$message->setSubject ( "Inscrição na CopaNorth" );
-			$message->setTextBody ( $msgText );
-			
-			// $message->setHtmlBody ();
-			
-			$message->send ();
+			if ($DEBUG != TRUE) {
+				$message = new Message ();
+				$message->setReplyTo ( "northapp@northbrasil.com.br" );
+				$message->setSender ( "northapp@northbrasil.com.br" );
+				$message->addTo ( $integranteInfo->email );
+				
+				$message->setSubject ( "Inscrição na CopaNorth" );
+				// $message->setTextBody ( $msgText );
+				
+				$message->setHtmlBody ();
+				
+				$message->send ();
+			} else {
+				syslog ( LOG_INFO, "$msgText" );
+			}
 		} catch ( Exception $e ) {
 			syslog ( LOG_INFO, "ERRO " . $e );
 		}
 	}
 	protected function getDefText($etapaInfo) {
-		$txt = "Agora sua equipe já consta no PRÉ-GRID da prova. Para confirmar a inscrição e ter a equipe listado no GRID FINAL, com horário de largada oficial, siga os procedimentos abaixo:\n\n";
+		$txt = "Agora sua equipe já consta no PRÉ-GRID da prova. Para confirmar a inscrição e ter a equipe listado no GRID FINAL, com horário de largada oficial, siga os procedimentos abaixo:<br><br>";
 		
-		$txt .= "1) PAGAMENTO\nEscolha uma das contas abaixo para pagamento/transferência bancária:\n";
-		$txt .= ".BRADESCO - AG 2297-7  /  CC 109.704-0  /  Fav: Sílvia H. Andreo e ou\n";
-		$txt .= ".ITAÚ - AG 4271  /  CC 01565-5  /  Fav: Sílvia H. Andreo e ou\n";
-		$txt .= ".BANCO DO BRASIL - AG 1515-6  /  CC 6108-5  /  Fav: Sílvia H. Andreo\n";
-		$txt .= "\n";
-		$txt .= "Em caso de DOC informar o CPF do favorecido. Solicitar o No. do CPF do favorecido pelo Tel (19) 3289-5281, WhatsApp (19) 98142-6043 ou recibo@northbrasil.com.br.\n";
-		$txt .= "\n";
-		$txt .= "2) COMPROVANTE DE PAGAMENTO\n";
-		$txt .= "Encaminhe o comprovante para recibo@northbrasil.com.br ou por WhatsApp (19) 98142-6043, informando:\n";
-		$txt .= ".Nome da equipe;\n";
-		$txt .= ".Categoria (Turismo, Trekkers, Graduados, Pro);\n";
-		$txt .= ".No. telefone celular para contato\n";
-		$txt .= "\n";
-		$txt .= "3) VALOR DE INSCRIÇÃO POR PARTICIPANTE:\n";
-		$txt .= ".Lote I (pagto até " . gmdate ( "d/m", ($etapaInfo->dataLimiteLote1 / 1000) ) . "): R$" . $etapaInfo->precoLote1 . " + Prova Social*\n"; // TODO pegar da etapa
-		$txt .= ".Lote II (pagto até " . gmdate ( "d/m", ($etapaInfo->dataLimiteLote2 / 1000) ) . "): R$" . $etapaInfo->precoLote2 . " + Prova Social*\n";
-		$txt .= ".Lote III: R$" . $etapaInfo->precoLote3 . " + Prova Social*\n";
-		$txt .= "\n";
-		$txt .= "*Prova Social da etapa (item para doação) = " . $etapaInfo->provaSocial . "\n";
-		$txt .= "\n";
-		$txt .= "Toda doação arrecadada é revertida para a cidade sede do evento. A doação é variável a cada etapa e deve ser entregue no Check-in.\n";
-		$txt .= "\n";
-		$txt .= "Acompanhe todas as informações do evento em www.northbrasil.com.br e  www.facebook.com/northbrasil: cronograma e briefing eletrônico, dicas para iniciantes, o que levar, como chegar, estrutura do local das provas, horários e tudo sobre o evento.\n";
-		$txt .= "\n";
-		$txt .= "NORTHBRASIL\n";
-		$txt .= "www.northbrasil.com.br\n";
-		$txt .= "contato@northbrasil.com.br\n";
-		$txt .= "www.facebook.com/northbrasil\n";
-		$txt .= "Tel (19) 3289-5281\n";
-		$txt .= "Cel, WhatsApp (19) 98142-6043\n";
+		$txt .= "1) PAGAMENTO<br>Escolha uma das contas abaixo para pagamento/transferência bancária:<br>";
+		$txt .= ".BRADESCO - AG 2297-7  /  CC 109.704-0  /  Fav: Sílvia H. Andreo e ou<br>";
+		$txt .= ".ITAÚ - AG 4271  /  CC 01565-5  /  Fav: Sílvia H. Andreo e ou<br>";
+		$txt .= ".BANCO DO BRASIL - AG 1515-6  /  CC 6108-5  /  Fav: Sílvia H. Andreo<br>";
+		$txt .= "<br>";
+		$txt .= "Em caso de DOC informar o CPF do favorecido. Solicitar o No. do CPF do favorecido pelo Tel (19) 3289-5281, WhatsApp (19) 98142-6043 ou recibo@northbrasil.com.br.<br>";
+		$txt .= "<br>";
+		$txt .= "2) COMPROVANTE DE PAGAMENTO<br>";
+		$txt .= "Encaminhe o comprovante para recibo@northbrasil.com.br ou por WhatsApp (19) 98142-6043, informando:<br>";
+		$txt .= ".Nome da equipe;<br>";
+		$txt .= ".Categoria (Turismo, Trekkers, Graduados, Pro);<br>";
+		$txt .= ".No. telefone celular para contato<br>";
+		$txt .= "<br>";
+		$txt .= "3) VALOR DE INSCRIÇÃO POR PARTICIPANTE:<br>";
+		$txt .= ".Lote I (pagto até " . gmdate ( "d/m", ($etapaInfo->dataLimiteLote1 / 1000) ) . "): R$" . $etapaInfo->precoLote1 . " + Prova Social*<br>"; // TODO pegar da etapa
+		$txt .= ".Lote II (pagto até " . gmdate ( "d/m", ($etapaInfo->dataLimiteLote2 / 1000) ) . "): R$" . $etapaInfo->precoLote2 . " + Prova Social*<br>";
+		$txt .= ".Lote III: R$" . $etapaInfo->precoLote3 . " + Prova Social*<br>";
+		$txt .= "<br>";
+		$txt .= "*Prova Social da etapa (item para doação) = " . $etapaInfo->provaSocial . "<br>";
+		$txt .= "<br>";
+		$txt .= "Toda doação arrecadada é revertida para a cidade sede do evento. A doação é variável a cada etapa e deve ser entregue no Check-in.<br>";
+		$txt .= "<br>";
+		$txt .= "Acompanhe todas as informações do evento em www.northbrasil.com.br e  www.facebook.com/northbrasil: cronograma e briefing eletrônico, dicas para iniciantes, o que levar, como chegar, estrutura do local das provas, horários e tudo sobre o evento.<br>";
+		$txt .= "<br>";
+		$txt .= "NORTHBRASIL<br>";
+		$txt .= "www.northbrasil.com.br<br>";
+		$txt .= "contato@northbrasil.com.br<br>";
+		$txt .= "www.facebook.com/northbrasil<br>";
+		$txt .= "Tel (19) 3289-5281<br>";
+		$txt .= "Cel, WhatsApp (19) 98142-6043<br>";
 		return $txt;
 	}
 }

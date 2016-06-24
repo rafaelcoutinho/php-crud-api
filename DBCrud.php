@@ -5,6 +5,7 @@ define ( 'DIVERGENT_FB', '802' );
 define ( 'DUPE_USER', '800' );
 define ( 'CONFIRMING_USER_NO_PWD', '803' );
 define ( 'GENERIC_DB_ERROR', '990' );
+
 date_default_timezone_set ( "America/Sao_Paulo" );
 class MySQL_CRUD_API extends REST_CRUD_API {
 	protected $queries = array (
@@ -639,8 +640,12 @@ class REST_CRUD_API {
 			if ($errorCode == null) {
 				$errorCode = - 1;
 			}
-			
-			die ( "{\"error\":true, \"errorMsg\":\"$type\",\"errorCode\":$errorCode}" );
+			$err = array (
+					'error' => true,
+					'errorMsg' => $type,
+					'errorCode' => $errorCode 
+			);
+			die ( json_encode ( $err ) );
 		} else {
 			throw new \Exception ( $type );
 		}
@@ -696,11 +701,11 @@ class REST_CRUD_API {
 		$count = 0;
 		$field = false;
 		$hasIdField = false;
-		if(strcspn($tables [0], "Competidor")==0){
+		if (strcspn ( $tables [0], "Competidor" ) == 0) {
 			return array (
-						$key,
-						'id' 
-				);
+					$key,
+					'id' 
+			);
 		}
 		if ($result = $this->query ( $db, $this->queries ['reflect_pk'], array (
 				$tables [0],
@@ -714,8 +719,7 @@ class REST_CRUD_API {
 		}
 		if ($count != 1 || $field == false) {
 			
-			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], 
-					array (
+			if ($result = $this->query ( $db, $this->queries ['reflect_table_type'], array (
 					$tables [0],
 					$database 
 			) )) {
@@ -1159,34 +1163,90 @@ class REST_CRUD_API {
 			}
 			
 			$this->close ( $result );
-		} else {			
+		} else {
 			return NULL;
 		}
 		
 		return $response;
 	}
-	protected function getObject($row, $colInfo) {
+	protected function getEntityJson($db, $sql, $params, $usename) {
+		if ($result = $this->query ( $db, $sql, $params )) {
+			$colInfo = $this->getColInfo ( $result, $usename );
+			if ($row = $this->fetch_assoc ( $result )) {
+				
+				$response = $this->getObjectJson ( $row, $colInfo );
+			}
+			
+			$this->close ( $result );
+		} else {
+			return NULL;
+		}
+		
+		return $response;
+	}
+	protected function getObjectJson($row, $colInfo) {
 		$keys = array_keys ( $row );
-		$response = "{";
+		$response = array ();
 		
 		foreach ( $row as $key => $value ) {
-			$response .= "\"" . $key . "\":";
 			
-			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1||$colInfo [$key] == 246) {
+			if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
 				
 				if (is_nan ( $row [$key] ) || $row [$key] == null) {
-					$response .= "null";
+					$response [$key] = null;
 				} else {
-					$response .= $row [$key];
+					switch ($colInfo [$key]) {
+						case 3 :
+						case 16 :
+						case 2 :
+						case 1 :
+						case 9 :
+						case 3 :
+						case 246 :
+							
+							$response [$key] = intval ( $row [$key] );
+							
+							break;
+						case 8 :
+							$response [$key] = floatval ( $row [$key] );
+							break;
+						default :
+							$response [$key] = $row [$key];
+					}
 				}
 			} else {
-				$response .= "\"" . $row [$key] . "\"";
+				// $response .= "\"" . $row [$key] . "\"";
+				$response [$key] = $row [$key];
 			}
-			$response .= ",";
+			// $response [$key . "_t"] = $colInfo [$key] . " - " . $row [$key];
+			// $response .= ",";
 		}
-		$response = rtrim ( $response, "," );
-		$response .= "}";
+		// $response = rtrim ( $response, "," );
+		// $response .= "}";
 		return $response;
+	}
+	protected function getObject($row, $colInfo) {
+		// $keys = array_keys ( $row );
+		// $response = "{";
+		
+		// foreach ( $row as $key => $value ) {
+		// $response .= "\"" . $key . "\":";
+		
+		// if ($colInfo [$key] == 3 || $colInfo [$key] == 8 || $colInfo [$key] == 1 || $colInfo [$key] == 246) {
+		
+		// if (is_nan ( $row [$key] ) || $row [$key] == null) {
+		// $response .= "null";
+		// } else {
+		// $response .= $row [$key];
+		// }
+		// } else {
+		// $response .= "\"" . $row [$key] . "\"";
+		// }
+		// $response .= ",";
+		// }
+		// $response = rtrim ( $response, "," );
+		// $response .= "}";
+		return json_encode ( $this->getObjectJson ( $row, $colInfo ) );
 	}
 	protected function listCommandInternal($parameters) {
 		extract ( $parameters );
@@ -1517,25 +1577,24 @@ class REST_CRUD_API {
 		}
 		return $tree;
 	}
-	protected function listTable($db, $sql, $params) {
-		$response = "";
+	protected function listTableJson($db, $sql, $params) {
+		$response = array ();
 		
 		if ($result = $this->query ( $db, $sql, $params )) {
 			$colInfo = $this->getColInfo ( $result, true );
 			while ( $row = $this->fetch_assoc ( $result ) ) {
-				$response .= $this->getObject ( $row, $colInfo );
-				$response .= ",";
+				$response [] = $this->getObjectJson ( $row, $colInfo );
 			}
 			$this->close ( $result );
 		} else {
 			syslog ( LOG_INFO, "nao achou " );
 		}
 		
-		$response = rtrim ( $response, "," );
-		
-		return "[" . $response . "]";
+		return $response;
 	}
-	
+	protected function listTable($db, $sql, $params) {
+		return json_encode ( $this->listTableJson ( $db, $sql, $params ) );
+	}
 	protected function generateRandomString($length = 10) {
 		$characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
 		$charactersLength = strlen ( $characters );
@@ -1558,7 +1617,7 @@ class REST_CRUD_API {
 		$words [] = "lanterna";
 		$words [] = "planilha";
 		$words [] = "equipe";
-	
+		
 		$characters = '0123456789';
 		$charactersLength = strlen ( $characters );
 		$palavrasCount = count ( $words );
@@ -1566,7 +1625,7 @@ class REST_CRUD_API {
 		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
 		$randomString .= ($characters [rand ( 0, $charactersLength - 1 )]);
 		$randomString .= $words [rand ( 0, $palavrasCount - 1 )];
-	
+		
 		return $randomString;
 	}
 	public function executeCommand() {

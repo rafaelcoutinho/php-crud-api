@@ -33,7 +33,13 @@ class SenhaApi extends MySQL_CRUD_API {
 		$params [] = $codigo;
 		$params [] = $milliseconds;
 		$result = $this->query ( $db, $sql, $params );
-		return $codigo;
+		if (! $result) {
+			$error = $this->getError ( $db );
+			
+			$this->exitWith500 ( 'Failed to insert object: ' . $error );
+		} else {
+			return $codigo;
+		}
 	}
 	public function executeCommand() {
 		if (isset ( $_SERVER ['REQUEST_METHOD'] )) {
@@ -74,11 +80,11 @@ class SenhaApi extends MySQL_CRUD_API {
 			try {
 				$message = new Message ();
 				$message->setReplyTo ( "northapp@northbrasil.com.br" );
-				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
+				$message->setSender ( "northapp@northbrasil.com.br" ); // senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $data->email );
 				$message->setSubject ( "Lembrar Senha NorthApp" );
-				$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
-				$message->setHtmlBody ( "<html><body>Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.<br><a href=\"http://cumeqetrekking.appspot.com/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\">Clique aqui</a> se você deseja receber uma nova senha.<br>Caso contrário ignore este e-mail.</body></html>" );
+				$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://app.northbrasil.com.br/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
+				$message->setHtmlBody ( "<html><body>Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.<br><a href=\"http://app.northbrasil.com.br/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\">Clique aqui</a> se você deseja receber uma nova senha.<br>Caso contrário ignore este e-mail.</body></html>" );
 				
 				$message->send ();
 			} catch ( InvalidArgumentException $e ) {
@@ -107,7 +113,7 @@ class SenhaApi extends MySQL_CRUD_API {
 			try {
 				$message = new Message ();
 				$message->setReplyTo ( "northapp@northbrasil.com.br" );
-				$message->setSender ( "senha@cumeqetrekking.appspotmail.com" );
+				$message->setSender ( "northapp@northbrasil.com.br" ); // senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $email );
 				$message->setSubject ( "Senha Provisória NorthApp" );
 				
