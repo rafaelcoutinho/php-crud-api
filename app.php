@@ -72,11 +72,24 @@ class AppApi extends MySQL_CRUD_API {
 								$idEtapa 
 						) );
 					} else if (strcmp ( $paths [2], "Resultado" ) == 0) {
-						
-						$resp = $this->listTable ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (
+						$diffResults = $this->query ( $db, "select distinct r.nomeResultado FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (
 								$idEtapa 
 						) );
-						
+						$resp = array ();
+						if ($diffResults) {
+							while ( $row = $this->fetch_assoc ( $diffResults ) ) {
+								$nomeResultado = $row ["nomeResultado"];
+								$entry = array ();
+								$entry ["nomeResultado"] = $nomeResultado;
+								$entry ["resultados"] = $this->listTableJson ( $db, "SELECT * FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.nomeResultado=? and r.id_Equipe=e.id", array (
+										
+										$idEtapa,
+										$nomeResultado 
+								) );
+								$resp [] = $entry;
+							}
+						}
+						$resp = json_encode ( $resp );
 					} else if (strcmp ( $paths [2], "Performance" ) == 0) {
 						$idEquipe = $paths [3];
 						
@@ -177,45 +190,40 @@ class AppApi extends MySQL_CRUD_API {
 			}
 		} else if (strcmp ( $paths [0], "Ranking" ) == 0) {
 			
-			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe  order by id_categoria, pontos  desc";
-			$resp = $this->listTableJson( $db, $sql, array () );
-			$respHash = array();
-			$arrayRankingTies = array(); 
-		 	foreach($resp as $value)
-         	{
-         		$respHash[$value["id_Equipe"]]=$value;	
-         		$pontos = $value["pontos"];
-         		$categoria = $value["id_Categoria"];
-         		if($arrayRankingTies[$categoria]==null){
-         			$arrayRankingTies[$categoria]=array();
-         		}
-         		if($arrayRankingTies[$categoria][$pontos]==null){
-         			$arrayRankingTies[$categoria][$pontos]=array();
-         		}
-         		$arrayRankingTies[$categoria][$pontos][]=$value;
-         	}
-         	foreach($arrayRankingTies as $categoria => $pontuacoes){
-         		//echo "cat ".$categoria."\n";
-         		foreach($pontuacoes as $pts => $tieds){         			
-         			if(sizeof($tieds)>1){
-         				//echo " Empate ".$pts."\n";
-         				foreach($tieds as $equipe){
-         					//echo "   ".$equipe["nome"]."\n";
-         					$sql = "select colocacao, count(colocacao) as vezes, id_Equipe from Resultado where id_Equipe=? group by colocacao order by colocacao";
-         					$colocacoes = $this->listTableJson( $db, $sql, array ($equipe["id_Equipe"]) );
-         					unset($colocacoes["id_Equipe"]);
-         					$respHash[$equipe["id_Equipe"]]["col"]=$colocacoes;         					
-         				}
-         				
-         				
-         			}
-         		}
-         		
-         	}
-         	$resp=json_encode(array_values($respHash));
-         		
-         	
-			
+			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe order by id_categoria, pontos  desc";
+			$resp = $this->listTableJson ( $db, $sql, array () );
+			$respHash = array ();
+			$arrayRankingTies = array ();
+			foreach ( $resp as $value ) {
+				$respHash [$value ["id_Equipe"]] = $value;
+				$pontos = $value ["pontos"];
+				$categoria = $value ["id_Categoria"];
+				if ($arrayRankingTies [$categoria] == null) {
+					$arrayRankingTies [$categoria] = array ();
+				}
+				if ($arrayRankingTies [$categoria] [$pontos] == null) {
+					$arrayRankingTies [$categoria] [$pontos] = array ();
+				}
+				$arrayRankingTies [$categoria] [$pontos] [] = $value;
+			}
+			foreach ( $arrayRankingTies as $categoria => $pontuacoes ) {
+				// echo "cat ".$categoria."\n";
+				foreach ( $pontuacoes as $pts => $tieds ) {
+					if (sizeof ( $tieds ) > 1) {
+						// echo " Empate ".$pts."\n";
+						foreach ( $tieds as $equipe ) {
+							// echo " ".$equipe["nome"]."\n";
+							$sql = "select colocacao, count(colocacao) as vezes, id_Equipe from Resultado where id_Equipe=? group by colocacao order by colocacao";
+							$colocacoes = $this->listTableJson ( $db, $sql, array (
+									$equipe ["id_Equipe"] 
+							) );
+							unset ( $colocacoes ["id_Equipe"] );
+							$respHash [$equipe ["id_Equipe"]] ["col"] = $colocacoes;
+						}
+					}
+				}
+			}
+			$resp = json_encode ( array_values ( $respHash ) );
 		} else if (strcmp ( $paths [0], "EtapaAtual" ) == 0) {
 			
 			if (strcmp ( $_SERVER ['REQUEST_METHOD'], "POST" ) == 0) {
@@ -232,7 +240,7 @@ class AppApi extends MySQL_CRUD_API {
 				}
 			}
 			$sql = "select * from Etapa where active=(1)";
-			$resp = $this->getEntity ( $db, $sql, array (),true );
+			$resp = $this->getEntity ( $db, $sql, array (), true );
 		} else if (strcmp ( $paths [0], "Msg" ) == 0) {
 			$userId = $paths [1];
 			$request_body = file_get_contents ( 'php://input' );
