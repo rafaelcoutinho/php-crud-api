@@ -83,7 +83,7 @@ class SenhaApi extends MySQL_CRUD_API {
 				$message->setSender ( "northapp@northbrasil.com.br" ); // senha@cumeqetrekking.appspotmail.com" );
 				$message->addTo ( $data->email );
 				$message->setSubject ( "Lembrar Senha NorthApp" );
-				$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://app.northbrasil.com.br/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
+				//$message->setTextBody ( "Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.\n Abra o seguinte link para  receber uma nova senha.Caso contrário ignore este e-mail. \nhttp://app.northbrasil.com.br/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\n" );
 				$message->setHtmlBody ( "<html><body>Um pedido para lembrar senha foi solicitado para o aplicativo NorthApp.<br><a href=\"http://app.northbrasil.com.br/endpoints/senha/Confirma?c=" . $codigo . "&email=" . $data->email . "\">Clique aqui</a> se você deseja receber uma nova senha.<br>Caso contrário ignore este e-mail.</body></html>" );
 				
 				$message->send ();
@@ -117,7 +117,7 @@ class SenhaApi extends MySQL_CRUD_API {
 				$message->addTo ( $email );
 				$message->setSubject ( "Senha Provisória NorthApp" );
 				
-				$message->setTextBody ( "Uma nova senha foi gerada para você. Você pode acessar o aplicativo agora com a senha '" . $senhaProvisoria . "'." );
+				//$message->setTextBody ( "Uma nova senha foi gerada para você. Você pode acessar o aplicativo agora com a senha '" . $senhaProvisoria . "'." );
 				$message->setHtmlBody ( "<html><body>Uma nova senha foi gerada para você. Você pode acessar o aplicativo agora com a senha:<br><h3>" . $senhaProvisoria . "</h3>" );
 				$message->send ();
 				$this->removeResets ( $db, $email );

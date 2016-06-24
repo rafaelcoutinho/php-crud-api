@@ -15,28 +15,27 @@ class Resultados extends MySQL_CRUD_API {
 		$grid = $this->getGridInfo ( $numero, $grids );
 		$posicaoEquipeNoGridDaCategoria = ( int ) $numero - $grid ["numeracao"];
 		$minutos = 0;
-		syslog ( LOG_INFO, "Numero:".$numero." DiffCate:".$posicaoEquipeNoGridDaCategoria." --- $posicaoEquipeNoGridDaCategoria>".$grid ["quota_intervalo1"]." usa ".$grid ["intervalo2"]);
+		syslog ( LOG_INFO, "Numero:" . $numero . " DiffCate:" . $posicaoEquipeNoGridDaCategoria . " --- $posicaoEquipeNoGridDaCategoria>" . $grid ["quota_intervalo1"] . " usa " . $grid ["intervalo2"] );
 		if ($grid ["quota_intervalo1"] != null && $posicaoEquipeNoGridDaCategoria > $grid ["quota_intervalo1"]) {
 			
-			$equipesDesdeAQuota = $posicaoEquipeNoGridDaCategoria - $grid ["quota_intervalo1"];			
+			$equipesDesdeAQuota = $posicaoEquipeNoGridDaCategoria - $grid ["quota_intervalo1"];
 			$minutos = $equipesDesdeAQuota * $grid ["intervalo2"];
-			syslog ( LOG_INFO, "Total pós quota:".$equipesDesdeAQuota." soma ".$minutos);
-			$totalDeMinutosAteQuota=$grid ["quota_intervalo1"]*$grid ["intervalo1"];
+			syslog ( LOG_INFO, "Total pós quota:" . $equipesDesdeAQuota . " soma " . $minutos );
+			$totalDeMinutosAteQuota = $grid ["quota_intervalo1"] * $grid ["intervalo1"];
 			
-			syslog ( LOG_INFO, "Total pós quota:".$equipesDesdeAQuota." soma ".$minutos." $totalDeMinutosAteQuota");
-			$minutos+= $totalDeMinutosAteQuota; //total até a quota
+			syslog ( LOG_INFO, "Total pós quota:" . $equipesDesdeAQuota . " soma " . $minutos . " $totalDeMinutosAteQuota" );
+			$minutos += $totalDeMinutosAteQuota; // total até a quota
 			$horas = ( int ) ($minutos / 60);
 			$horas += ( int ) $grid ["inicio_hora"];
-			syslog ( LOG_INFO, "$horas");
+			syslog ( LOG_INFO, "$horas" );
 			$minutos = ( int ) $minutos % 60;
-		}else{		
+		} else {
 			$minutos += $posicaoEquipeNoGridDaCategoria * $grid ["intervalo1"];
 			$minutos += $grid ["inicio_minuto"];
 			$horas = ( int ) ($minutos / 60);
 			$horas += ( int ) $grid ["inicio_hora"];
 			$minutos = ( int ) $minutos % 60;
 		}
-		
 		
 		$params = array ();
 		$params [] = $idEtapa;
@@ -55,9 +54,7 @@ class Resultados extends MySQL_CRUD_API {
 			$gridInf ["equipe"] = json_decode ( $equipe );
 		}
 		
-		
 		return $gridInf;
-		
 	}
 	public function executeCommand() {
 		if (strcmp ( $_SERVER ['REQUEST_METHOD'], "OPTIONS" ) == 0) {
@@ -176,21 +173,34 @@ class Resultados extends MySQL_CRUD_API {
 			
 			echo json_encode ( $responseJson );
 			return;
+		} else if (strcmp ( $_SERVER ['REQUEST_METHOD'], "DELETE" ) == 0) {
+			$params = array ();
+			$params [] = $_GET ["etapa"];
+			$params [] = $_GET ["nome"];
+			$sqlDeleteResultados = "delete from Resultado where id_Etapa=? and nomeResultado=?";
+			$sqlDeletePCS = "delete from PC where id_Etapa=? and nomeResultado=?";
+			
+			$this->query ( $db, $sqlDeletePCS, $params );
+			$this->query ( $db, $sqlDeleteResultados, $params );
 		} else if (strcmp ( $_SERVER ['REQUEST_METHOD'], "PUT" ) == 0) {
 			
 			$request_body = file_get_contents ( 'php://input' );
 			
-			$data = json_decode ( $request_body, true );
-			$sqlDeleteResultados = "delete from Resultado where id_Etapa=?";
-			$sqlDeletePCS = "delete from PC where id_Etapa=?";
+			$postData = json_decode ( $request_body, true );
+			$data = $postData ["resultados"];
+			$nome = $postData ['nome'];
+			
+			$sqlDeleteResultados = "delete from Resultado where id_Etapa=? and nomeResultado=?";
+			$sqlDeletePCS = "delete from PC where id_Etapa=? and nomeResultado=?";
 			$params = array ();
 			$params [] = $_GET ["etapa"];
+			$params [] = $nome;
 			$totalSemEquipe = 0;
 			$this->query ( $db, $sqlDeletePCS, $params );
 			$this->query ( $db, $sqlDeleteResultados, $params );
-			$sqlInsertResultado = "insert into Resultado (id_Etapa,id_Equipe,colocacao,pcs_pegos,pcs_zerados,pontos_perdidos,numero,penalidade,pontos_ranking) values (?,?,?,?,?,?,?,?,?)";
+			$sqlInsertResultado = "insert into Resultado (id_Etapa,id_Equipe,colocacao,pcs_pegos,pcs_zerados,pontos_perdidos,numero,penalidade,pontos_ranking,nomeResultado) values (?,?,?,?,?,?,?,?,?,?)";
 			
-			$sqlInsertPC = "insert into PC (id_Etapa,id_Equipe,numero,variacao,tipo,ate,colocacao) values (?,?,?,?,?,?,?)";
+			$sqlInsertPC = "insert into PC (id_Etapa,id_Equipe,nomeResultado,numero,variacao,tipo,ate,colocacao) values (?,?,?,?,?,?,?,?)";
 			
 			foreach ( $data as &$value ) {
 				$idEquipe = $value ["grid"] ["equipe"] ["id_Equipe"];
@@ -200,7 +210,7 @@ class Resultados extends MySQL_CRUD_API {
 				}
 				$params = array ();
 				
-// 				id_Etapa,id_Equipe,colocacao,pcs_pegos,pcs_zerados,pontos_perdidos,numero,penalidade,pontos_ranking
+				// id_Etapa,id_Equipe,colocacao,pcs_pegos,pcs_zerados,pontos_perdidos,numero,penalidade,pontos_ranking
 				$params [] = $_GET ["etapa"];
 				$params [] = $idEquipe;
 				$params [] = $value ["Col"];
@@ -218,7 +228,9 @@ class Resultados extends MySQL_CRUD_API {
 				} else {
 					$pontosRanking = 60 - 2 - $value ["Col"];
 				}
-				$params [] =$pontosRanking;
+				$params [] = $pontosRanking;
+				$params [] = $nome;
+				
 				mysqli_query ( $db, "BEGIN" );
 				$this->query ( $db, $sqlInsertResultado, $params );
 				
@@ -231,6 +243,7 @@ class Resultados extends MySQL_CRUD_API {
 					$params = array ();
 					$params [] = $_GET ["etapa"];
 					$params [] = $idEquipe;
+					$params [] = $nome;
 					$params [] = $pc ["pc"];
 					if (isset ( $pc ["Tmp"] )) {
 						if (strcmp ( $pc ["Tmp"], "*900" ) == 0) {
@@ -260,7 +273,7 @@ class Resultados extends MySQL_CRUD_API {
 					
 					$insertParams [] = '(' . $params [0] . ',' . $params [1] . ',' . $params [2] . ',' . $params [3] . ',' . $params [4] . ',' . $params [5] . ',' . $params [6] . ')';
 				}
-				$finalInsert = 'INSERT INTO PC (id_Etapa,id_Equipe,numero,variacao,tipo,ate,colocacao) VALUES ' . implode ( ',', $insertParams );
+				$finalInsert = 'INSERT INTO PC (id_Etapa,id_Equipe,nome,numero,variacao,tipo,ate,colocacao) VALUES ' . implode ( ',', $insertParams );
 				// syslog ( LOG_INFO, " $finalInsert" );
 				mysqli_query ( $db, $finalInsert );
 				mysqli_query ( $db, "COMMIT" );
