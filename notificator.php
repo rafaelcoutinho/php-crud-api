@@ -95,6 +95,10 @@ class NotificatorAction extends MySQL_CRUD_API {
 				$result = $this->query ( $db, "select * from MsgDevice msg, Competidor t where msg.idUser=t.id_Trekker and t.id_Equipe=?", array (
 						$data->id_Equipe 
 				) );
+			} else if (strcmp ( $data->type, "naoinscritos" ) == 0) {
+				$result = $this->query ( $db, "SELECT * FROM MsgDevice c where c.idUser not in (select id_Trekker from Inscricao i, Etapa e  where i.id_Etapa=e.id and e.active=true)", array (
+				 
+				) );
 			} else if (strcmp ( $data->type, "resultados" ) == 0) {
 				$result = $this->query ( $db, "select msg.*,e.titulo, t.equipe, r.colocacao,r.pontos_perdidos from MsgDevice msg, Competidor t, Resultado r, Etapa e where msg.idUser=t.id_Trekker and t.id_Equipe=r.id_Equipe and e.id=r.id_Etapa and e.id=?", array (
 						$data->id_Etapa 

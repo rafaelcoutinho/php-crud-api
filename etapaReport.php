@@ -63,7 +63,7 @@ class EtapaReportApi extends MySQL_CRUD_API {
 			$etapa = $this->getEntityJson ( $db, "select * from Etapa where id=?", array (
 					$idEtapa 
 			), true );
-			header ( 'Content-Type: application/csv' );
+			header ( 'Content-Type: application/csv;charset=utf-8' );
 			syslog ( LOG_INFO, "etapa '" . $etapa ["titulo"] . "'" );
 			$filename = str_replace ( " ", "", $etapa ["titulo"] );
 			syslog ( LOG_INFO, "arquivo '" . $filename . "'" );

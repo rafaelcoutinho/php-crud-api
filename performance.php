@@ -27,7 +27,7 @@ class Resultados extends MySQL_CRUD_API {
 			$minutos += $totalDeMinutosAteQuota; // total até a quota
 			$horas = ( int ) ($minutos / 60);
 			$horas += ( int ) $grid ["inicio_hora"];
-			syslog ( LOG_INFO, "$horas" );
+		
 			$minutos = ( int ) $minutos % 60;
 		} else {
 			$minutos += $posicaoEquipeNoGridDaCategoria * $grid ["intervalo1"];
@@ -48,7 +48,7 @@ class Resultados extends MySQL_CRUD_API {
 		$gridInf = array ();
 		$gridInf ["hora"] = $horas;
 		$gridInf ["minuto"] = $minutos;
-		// syslog ( LOG_INFO," ".$horas.":".$minutos);
+
 		$gridInf ["grid"] = $grid ["nome"];
 		if ($equipe) {
 			$gridInf ["equipe"] = json_decode ( $equipe );
@@ -262,6 +262,13 @@ class Resultados extends MySQL_CRUD_API {
 							$params [] = $pc ["Virt"];
 						}
 						$params [] = 2;
+					} else if (isset ( $pc ["Pass"] )) {
+						if (strcmp ( $pc ["Pass"], "*900" ) == 0) {
+							$params [] = 900;
+						} else {
+							$params [] = $pc ["Pass"];
+						}
+						$params [] = 1;
 					} else {
 						mysqli_query ( $db, "ROLLBACK" );
 						$errMsg = "Tipo de PCS Invalido #:" . $value ["No"] . " pc:" . $pcs [$i] ["pc"] . " v:'" . $pc ["Virt"] . "' c:'" . $pc ["Canc"] . "' t:'" . $pc ["Tmp"] . "'";
