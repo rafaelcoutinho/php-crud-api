@@ -44,7 +44,7 @@ class AppApi extends MySQL_CRUD_API {
 			$l = count ( $paths );
 			if ($l == 1) {
 				
-				$resp = $this->listTable ( $db, "select e.*,l.nome from Etapa e left join Local l on  e.id_Local=l.id", array () );
+				$resp = $this->listTable ( $db, "select e.*,l.nome from Etapa e left join Local l on  e.id_Local=l.id where e.data>1487102711000", array () );
 				
 				// listar todos
 			} else {
@@ -72,7 +72,7 @@ class AppApi extends MySQL_CRUD_API {
 								$idEtapa 
 						) );
 					} else if (strcmp ( $paths [2], "Resultado" ) == 0) {
-						$diffResults = $this->query ( $db, "select distinct r.nomeResultado FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id", array (
+						$diffResults = $this->query ( $db, "select distinct r.nomeResultado FROM northdb.Resultado r, Equipe e where r.id_Etapa=? and r.id_Equipe=e.id and e.data>1487102711000", array (
 								$idEtapa 
 						) );
 						$resp = array ();
@@ -190,7 +190,7 @@ class AppApi extends MySQL_CRUD_API {
 			}
 		} else if (strcmp ( $paths [0], "Ranking" ) == 0) {
 			
-			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where e.id=r.id_Equipe group by id_Equipe order by id_categoria, pontos  desc";
+			$sql = "SELECT r.id_Equipe, e.nome,e.descricao,e.id_Categoria,sum(pontos_ranking) as pontos FROM northdb.Resultado r, Equipe e where r.id_etapa in (select id from Etapa et where et.data>1487102711000) e.id=r.id_Equipe group by id_Equipe order by id_categoria, pontos  desc";
 			$resp = $this->listTableJson ( $db, $sql, array () );
 			$respHash = array ();
 			$arrayRankingTies = array ();

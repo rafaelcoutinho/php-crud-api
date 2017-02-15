@@ -2,7 +2,6 @@
 include 'DBCrud.php';
 include 'connInfo.php';
 
-$adfasdf = $configArray;
 class PubAppApi extends MySQL_CRUD_API {
 	public function executeCommand() {
 		if (isset($_SERVER['REQUEST_METHOD'])) {
