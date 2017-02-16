@@ -119,8 +119,7 @@ class NotificatorAction extends MySQL_CRUD_API {
 				$body = $this->getBody ( $data->type, $data->notification, $row, $db );
 				$title = $this->getTitle ( $data->type, $data->notification, $row, $db );
 				syslog ( LOG_INFO, "Enviando " . $data->type . " para user id " . $row ["idUser"] . " em " . $row ["platform"] );
-				syslog ( LOG_INFO, $title );
-				syslog ( LOG_INFO, $body );
+				
 				if (strcmp ( "android", $row ["platform"] ) == 0) {
 					$task = new PushTask ( '/task/GCMPush', [ 
 							'body' => $body,

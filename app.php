@@ -59,8 +59,32 @@ class AppApi extends MySQL_CRUD_API {
 						$grid = $this->listTable ( $db, "select * from GridFull where id_Etapa=?", array (
 								$idEtapa 
 						) );
-						$preGrid = $this->listTable ( $db, "select * from PreGrid where id_Etapa=?", array (
-								$idEtapa 
+						$sqlPreGrid = "
+								SELECT 
+						   			`eq`.`id` AS `id_Equipe`,
+									`eq`.`nome` AS `nome`,
+									`eq`.`descricao` AS `descricao`,
+									`eq`.`id_Categoria` AS `id_Categoria`,
+									`cat`.`nome` AS `nome_Categoria`,
+									`ins`.`data` AS `data`,
+									`ins`.`id_Etapa` AS `id_Etapa`
+								FROM
+									(((`Inscricao` `ins`
+									LEFT JOIN `Grid` `g` ON (((`ins`.`id_Equipe` = `g`.`id_Equipe`)
+										AND (`ins`.`id_Etapa` = `g`.`id_Etapa`) and  ins.id_Etapa=?)))
+									JOIN `Equipe` `eq`)
+									JOIN `Categoria` `cat`)
+								WHERE
+									((`ins`.`id_Equipe` = `eq`.`id`)
+										AND (`cat`.`id` = `eq`.`id_Categoria`)
+										AND ISNULL(`g`.`id_Equipe`))
+										and ins.id_Etapa=?
+								GROUP BY `eq`.`id`";
+						// $preGrid = $this->listTable ( $db, "select * from PreGrid where id_Etapa=?", array (
+						// 		$idEtapa 
+						// ) );
+						$preGrid = $this->listTable ( $db, $sqlPreGrid, array (
+								$idEtapa,$idEtapa 
 						) );
 						$etapa = $this->getEntity ( $db, "select * from Etapa  e left join Local l on  e.id_Local=l.id where e.id=?", array (
 								$idEtapa 

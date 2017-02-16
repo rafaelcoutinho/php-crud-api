@@ -409,7 +409,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 			
 			$liderInfo = json_decode ( $liderInfo );
 			
-			$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
+			$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2017<br><br>Parabéns " . $liderInfo->nome . "! A inscrição da Equipe " . $equipeInfo->nome . " foi efetuada com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>"; // TODO colocar data
 			$msgText .= $this->getDefText ( $etapaInfo );
 			
 			$message = new Message ();
@@ -443,7 +443,7 @@ class InscricaoApi extends MySQL_CRUD_API {
 		
 		
 		
-		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2016<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foram cadastrados com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>";
+		$msgText = "ENDURO A PÉ NORTHBRASIL<br>" . $etapaInfo->titulo . "<br>COPA NORTH 2017<br><br>Parabéns " . $integranteInfo->nome . "! " . $liderInfo->nome . " já fez sua inscrição e os dados da Equipe  " . $equipeInfo->nome . " foram cadastrados com sucesso! Seus dados foram cadastrados para " . $etapaInfo->titulo . ", " . $etapaInfo->local . ", " . gmdate ( "d/m", ($etapaInfo->data / 1000) ) . " <br><br>";
 		$msgText .= $this->getDefText ( $etapaInfo );
 		try {
 			
